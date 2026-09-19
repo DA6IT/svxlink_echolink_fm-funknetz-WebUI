@@ -43,7 +43,26 @@ def test_snapshot_is_private_jsonl_and_atomic(tmp_path):
     assert stat.S_IMODE(output.stat().st_mode) == 0o640
 
 
-def test_permission_binder_rejects_symlink(tmp_path):
+def test_permission_binder_accepts_sv_link_to_direct_pty(tmp_path, monkeypatch):
+    import os
+
+    master, slave = os.openpty()
+    try:
+        target = Path(os.ttyname(slave))
+        link = tmp_path / 'state'
+        link.symlink_to(target)
+        monkeypatch.setattr('app.state_pty_permissions.grp.getgrnam', lambda name: type('Group', (), {'gr_gid': 1234})())
+        chowned = []
+        monkeypatch.setattr('app.state_pty_permissions.os.fchown', lambda fd, uid, gid: chowned.append(Path(os.ttyname(fd))))
+        monkeypatch.setattr('app.state_pty_permissions.os.fchmod', lambda fd, mode: None)
+        bind_permissions(link)
+        assert chowned == [target]
+    finally:
+        os.close(master)
+        os.close(slave)
+
+
+def test_permission_binder_rejects_escaping_symlink(tmp_path):
     target = tmp_path / 'target'
     target.write_text('not a PTY')
     link = tmp_path / 'state'
@@ -51,9 +70,28 @@ def test_permission_binder_rejects_symlink(tmp_path):
     try:
         bind_permissions(link)
     except ValueError as error:
-        assert 'direct character device or FIFO' in str(error)
+        assert 'direct /dev/pts' in str(error)
     else:
         raise AssertionError('symlink must be rejected')
+
+
+def test_permission_binder_rejects_symlink_to_regular_file_under_pts(tmp_path, monkeypatch):
+    link = tmp_path / 'state'
+    link.symlink_to('/dev/pts/5')
+    monkeypatch.setattr('app.state_pty_permissions.os.readlink', lambda path: '/dev/pts/5')
+
+    def fake_lstat(path):
+        return type('Info', (), {'st_mode': stat.S_IFLNK})()
+    monkeypatch.setattr('app.state_pty_permissions.os.lstat', fake_lstat)
+    monkeypatch.setattr('app.state_pty_permissions.os.open', lambda path, flags: 99)
+    monkeypatch.setattr('app.state_pty_permissions.os.fstat', lambda fd: type('Info', (), {'st_mode': stat.S_IFREG})())
+    monkeypatch.setattr('app.state_pty_permissions.os.close', lambda fd: None)
+    try:
+        bind_permissions(link)
+    except ValueError as error:
+        assert 'direct character device or FIFO' in str(error)
+    else:
+        raise AssertionError('regular file target must be rejected')
 
 
 def test_permission_binder_sets_reader_group_and_read_only_mode(tmp_path, monkeypatch):
@@ -62,6 +100,6 @@ def test_permission_binder_sets_reader_group_and_read_only_mode(tmp_path, monkey
     path = tmp_path / 'state'
     os.mkfifo(path, 0o620)
     monkeypatch.setattr('app.state_pty_permissions.grp.getgrnam', lambda name: type('Group', (), {'gr_gid': 1234})())
-    monkeypatch.setattr('app.state_pty_permissions.os.chown', lambda path, uid, gid: None)
+    monkeypatch.setattr('app.state_pty_permissions.os.fchown', lambda fd, uid, gid: None)
     bind_permissions(path)
     assert stat.S_IMODE(path.stat().st_mode) == 0o640
