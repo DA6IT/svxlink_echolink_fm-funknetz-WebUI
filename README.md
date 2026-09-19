@@ -2,6 +2,10 @@
 
 Release 0.2.0 is a responsive FastAPI + React/Vite dashboard for a local SvxLink node. It starts in production-safe mode (`SVXLINK_WEBUI_DEMO=false`) and shows only data read from documented local, read-only sources.
 
+## Dokumentation
+
+Die vollständige Architektur-, API-, Sicherheits-, Installations- und Betriebsdokumentation steht im [Dokumentationsindex](docs/README.md). Die dort beschriebenen Grenzen sind verbindlich: Die aktuelle Anwendung ist read-only und enthält keine Funk-, PTT-, DTMF-, MQTT- oder EchoLink-Steuerung.
+
 ## Live data and privacy
 
 The dashboard reads these local sources, each configurable through its matching environment variable:
