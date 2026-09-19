@@ -1,3 +1,4 @@
+from email.message import Message
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -68,11 +69,48 @@ def test_talkgroups_exposes_confirmed_fm_funknetz_data(tmp_path, monkeypatch):
 
 
 def test_fm_funknetz_failure_is_safe(monkeypatch):
+    monkeypatch.setattr(main, 'FM_MQTT_ENABLED', True)
     monkeypatch.setattr(main, '_get_json', lambda url: (_ for _ in ()).throw(OSError('offline')))
     result = main.fm_funknetz_live()
     assert result['available'] is False
     assert result['live'] == []
     assert result['mqtt']['topics'] == ['/server/statethr', '/server/statethr/1', '/server/state/logins']
+    assert result['mqtt']['configured'] is main.FM_MQTT_ENABLED
+    assert result['mqtt']['adapter_active'] is False
+
+
+def test_fm_feed_urls_are_strictly_allowlisted():
+    main._validate_feed_url('https://dashboard.fm-funknetz.de/data/live.json')
+    for invalid in (
+        'file:///etc/passwd', 'http://dashboard.fm-funknetz.de/data/live.json',
+        'https://127.0.0.1/data/live.json', 'https://dashboard.fm-funknetz.de/data/other.json',
+        'https://example.test/data/live.json',
+        'https://dashboard.fm-funknetz.de@127.0.0.1/data/live.json',
+        'https://dashboard.fm-funknetz.de/data/live.json?redirect=http://127.0.0.1',
+    ):
+        try:
+            main._validate_feed_url(invalid)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f'accepted unallowlisted feed URL: {invalid}')
+
+
+def test_fm_feed_redirect_is_not_followed(monkeypatch):
+    class RedirectOpener:
+        def open(self, request, timeout):
+            headers = Message()
+            headers['Location'] = 'https://example.test/data/live.json'
+            raise main.urllib.error.HTTPError(
+                request.full_url, 302, 'redirect', headers, None)
+
+    monkeypatch.setattr(main.urllib.request, 'build_opener', lambda handler: RedirectOpener())
+    try:
+        main._get_json('https://dashboard.fm-funknetz.de/data/live.json')
+    except main.urllib.error.HTTPError:
+        pass
+    else:
+        raise AssertionError('followed an unverified feed redirect')
 
 
 def test_talkgroups_only_confirms_new_allowlisted_selection(tmp_path, monkeypatch):
