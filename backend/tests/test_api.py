@@ -127,15 +127,15 @@ def test_talkgroups_only_confirms_new_allowlisted_selection(tmp_path, monkeypatc
 
 def test_state_pty_collector_is_opt_in_read_only_and_normalized(tmp_path, monkeypatch):
     state = tmp_path / 'state.jsonl'
-    state.write_text('{"event":"Tx:state","state":true,"timestamp":"2026-09-19T12:00:00"}\n'
-                     '{"event":"Rx:state","state":false,"squelch":0,"siglev":42}\n'
+    state.write_text('{"event":"Tx:state","state":true,"timestamp":"1789854400.123"}\n'
+                     '{"event":"Rx:state","state":[true,false],"sql_open":[true,false],"active":[true,true],"siglev":[42,17],"timestamp":"1789854401.456"}\n'
                      '{"event":"unknown","state":true}\nnot json\n')
     monkeypatch.setattr(main, 'STATE_PTY_PATH', state)
     monkeypatch.setattr(main, 'STATE_PTY_ENABLED', True)
     result = main.local_rf_telemetry()
     assert result['available'] is True
     assert result['tx']['state'] is True
-    assert result['rx'] == {'source': 'STATE_PTY', 'kind': 'rx', 'state': False, 'squelch': 0, 'siglev': 42}
+    assert result['rx'] == {'source': 'STATE_PTY', 'kind': 'rx', 'state': [True, False], 'sql_open': [True, False], 'active': [True, True], 'siglev': [42, 17], 'timestamp': '1789854401.456'}
     monkeypatch.setattr(main, 'STATE_PTY_ENABLED', False)
     assert main.local_rf_telemetry()['available'] is False
 

@@ -1,0 +1,31 @@
+[Unit]
+Description=SvxLink STATE_PTY to JSONL collector
+After=svxlink.service
+Requires=svxlink.service
+
+[Service]
+Type=simple
+User=svxlink-state-collector
+Group=svxlink-webui
+SupplementaryGroups=svxlink-state-reader
+WorkingDirectory=/opt/svxlink-webui/backend
+EnvironmentFile=-/etc/svxlink-webui/environment
+ExecStart=/opt/svxlink-webui/.venv/bin/python -m app.state_pty_collector --input ${SVXLINK_STATE_PTY_RAW_PATH} --output ${SVXLINK_STATE_PTY_PATH}
+Restart=on-failure
+RestartSec=2s
+RuntimeDirectory=svxlink-webui
+RuntimeDirectoryMode=0750
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/svxlink-webui
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

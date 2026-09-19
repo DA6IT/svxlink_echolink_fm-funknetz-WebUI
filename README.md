@@ -10,13 +10,21 @@ The dashboard reads these local sources, each configurable through its matching 
 - `systemctl show svxlink` plus `/run/svxlink.pid` (`SVXLINK_SERVICE_NAME`, `SVXLINK_PID_PATH`): service state, substate and PID.
 - `/var/log/svxlink` (`SVXLINK_LOG_PATH`): only parsed `ReflectorLogic: Node joined/left` events, event count and timestamp.
 - `/etc/svxlink/svxlink.conf` (`SVXLINK_CONFIG_PATH`): only the explicit allowlist `LOGICS`, `DEFAULT_TG`, `CALLSIGN`, `NODE_INFO_FILE`, `LINKS`, and `SERVICES`.
-- An optional locally configured SvxLink `STATE_PTY` JSONL reader (`SVXLINK_STATE_PTY_PATH`): only normalized `Tx:state` and `Rx:state` values (including Squelch/Siglev when present). It is disabled unless `SVXLINK_STATE_PTY_ENABLED=true` and is strictly read-only.
+- An optional normalized JSONL snapshot (`SVXLINK_STATE_PTY_PATH`) written by the separate `svxlink-state-collector` service. It contains only normalized documented `Tx:state` and `Rx:state` values. It is disabled unless `SVXLINK_STATE_PTY_ENABLED=true`.
 
-There is deliberately no `/api/config` endpoint and no raw log or configuration output. The API has no write endpoint, shell command endpoint, service control, MQTT client, or radio/PTT control. The `STATE_PTY` collector reads the configured file tail as JSONL only; it does not configure SvxLink and never accesses `COMMAND_PTY`, DTMF, or a PTT device.
+There is deliberately no `/api/config` endpoint and no raw log or configuration output. The API has no write endpoint, shell command endpoint, service control, MQTT client, or radio/PTT control. The WebUI never opens the raw `STATE_PTY`; the dedicated collector has no shell/subprocess or PTY-write code, accepts only `Tx:state`/`Rx:state` input, and never accesses `COMMAND_PTY`, DTMF, or a PTT device.
 
 ## Local RF telemetry and future events
 
-`/api/rf/status` and the dashboard label local TX/PTT and RX/Squelch/Siglev separately from FM-Funknetz activity. Without a readable, explicitly enabled `STATE_PTY`, their state is unavailable rather than inferred from a network feed. `/api/events` is a disabled-by-default normalized input boundary (`SVXLINK_LOCAL_EVENT_INPUT_ENABLED`); it accepts no HTTP input and currently exposes only normalized read-only state events. Local talker/TG and EchoLink peers remain `unavailable` until a separately validated, one-way host-specific emitter produces actual events. Do not add Tcl, shell, or PTY command interpolation to this interface.
+`/api/rf/status` and the dashboard label local TX/PTT and the full RX `sql_open`, `active`, and `siglev` arrays separately from FM-Funknetz activity. Without a readable, explicitly enabled snapshot, their state is unavailable rather than inferred from a network feed. `/api/events` is a disabled-by-default normalized input boundary (`SVXLINK_LOCAL_EVENT_INPUT_ENABLED`); it accepts no HTTP input and currently exposes only normalized read-only state events. Local talker/TG and EchoLink peers remain `unavailable` until a separately validated, one-way host-specific emitter produces actual events. Do not add Tcl, shell, or PTY command interpolation to this interface.
+
+### STATE_PTY collector setup
+
+`svxlink-state-collector.service` runs as the dedicated `svxlink-state-collector` account, with only group membership in `svxlink-state-reader`; the WebUI account has no raw-PTY access. The operator must configure SvxLink's *read-only* `STATE_PTY` device at `SVXLINK_STATE_PTY_RAW_PATH`, make that character device/FIFO `root:svxlink-state-reader` and group-readable, and set `SVXLINK_STATE_PTY_ENABLED=true`. Do not grant either service account access to `COMMAND_PTY`.
+
+The collector writes an atomically replaced, bounded 200-event JSONL snapshot to `/run/svxlink-webui/state.jsonl` (mode `0640`, owner `svxlink-state-collector:svxlink-webui`). It rejects malformed, oversized, and non-`Tx:state`/`Rx:state` lines; it logs and exits on a closed/unavailable raw PTY so systemd restarts it. The snapshot is replaced instead of appended, so history rotates on every update and cannot grow indefinitely.
+
+After reviewing the host-specific device permissions and `/etc/svxlink-webui/environment`, run `sudo systemctl enable --now svxlink-state-collector`. The installer installs this unit but deliberately does not enable it: a guessed PTY path or widened device permissions would not be safe.
 
 ## FM-Funknetz live integration
 
@@ -58,7 +66,7 @@ cd svxlink-webui
 sudo ./install.sh
 ```
 
-The script creates user `svxlink-webui`, `/opt/svxlink-webui`, `/var/lib/svxlink-webui`, static root `/var/www/new.shart`, systemd service, and a new Apache site only. It refuses a busy port 12345 and runs `apache2ctl configtest` before reload. It does not edit existing Apache vHosts or SvxLink configuration.
+The script creates the `svxlink-webui` service user plus a separate `svxlink-state-collector` user and `svxlink-state-reader` group, `/opt/svxlink-webui`, `/var/lib/svxlink-webui`, static root `/var/www/new.shart`, systemd units, and a new Apache site only. It refuses a busy port 12345 and runs `apache2ctl configtest` before reload. It does not edit existing Apache vHosts or SvxLink configuration, and it does not enable the optional raw-PTY collector.
 
 ## Verification
 
