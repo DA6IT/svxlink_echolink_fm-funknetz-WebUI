@@ -55,6 +55,13 @@ SELECTING_TG_RE = re.compile(
     r"ReflectorLogic: Selecting TG #(?P<tg>\d+)\s*$",
     re.I,
 )
+LOCAL_RF_RE = re.compile(
+    r"^(?P<time>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+.*?"
+    r"(?:Rx1: The squelch is (?P<squelch>OPEN|CLOSED) \((?P<level>-?\d+(?:\.\d+)?)\)|"
+    r"ReflectorLogic: Selecting TG #(?P<tg>\d+)|"
+    r"ReflectorLogic: Talker (?P<talker_event>start|stop) on TG #(?P<talker_tg>\d+): (?P<callsign>[A-Za-z0-9/_-]+))$",
+    re.I,
+)
 
 
 def parse_ini(path: Path) -> dict[str, dict[str, str]]:
@@ -140,6 +147,39 @@ def talkgroup_activity(limit: int = 100) -> list[dict[str, str]]:
             if match and match.group("tg") in TG_ALLOWLIST:
                 selections.append({"talkgroup": match.group("tg"), "timestamp": match.group("time").replace(" ", "T")})
     return selections[-limit:]
+
+
+def local_log_rf_activity() -> dict[str, Any]:
+    """Parse the small, confirmed read-only local RF log vocabulary."""
+    result: dict[str, Any] = {
+        "available": bool(log_files()), "source": "SvxLink-Log",
+        "rx": {"squelch": None, "level": None, "timestamp": None},
+        "talkgroup": None, "talker": None, "updated_at": None,
+    }
+    lines: list[tuple[str, re.Match[str]]] = []
+    for path in log_files():
+        try:
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                match = LOCAL_RF_RE.match(line.strip())
+                if match:
+                    lines.append((match.group("time"), match))
+        except OSError:
+            continue
+    for stamp, match in sorted(lines, key=lambda item: item[0]):
+        timestamp = stamp.replace(" ", "T")
+        if match.group("squelch"):
+            result["rx"] = {"squelch": match.group("squelch").lower(),
+                            "level": float(match.group("level")), "timestamp": timestamp}
+        elif match.group("tg"):
+            result["talkgroup"] = {"tg": match.group("tg"), "timestamp": timestamp}
+        else:
+            event = match.group("talker_event").lower()
+            result["talker"] = None if event == "stop" else {
+                "tg": match.group("talker_tg"), "callsign": match.group("callsign"),
+                "timestamp": timestamp,
+            }
+        result["updated_at"] = timestamp
+    return result
 
 
 def _state_event(value: Any) -> tuple[str, dict[str, Any]] | None:
@@ -254,7 +294,7 @@ def dashboard() -> dict[str, Any]:
     activity = reflector_activity()
     config = parse_ini(CONFIG_PATH)
     return {"node": node, "svxlink": service_status(), "reflector": activity,
-            "rf": local_rf_telemetry(), "events": normalized_local_events(),
+            "rf": local_rf_telemetry(), "local_log": local_log_rf_activity(), "events": normalized_local_events(),
             "config": config, "demo": DEMO, "version": VERSION, "updated_at": datetime.now().astimezone().isoformat()}
 
 

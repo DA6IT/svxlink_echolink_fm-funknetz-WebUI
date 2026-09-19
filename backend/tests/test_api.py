@@ -125,6 +125,24 @@ def test_talkgroups_only_confirms_new_allowlisted_selection(tmp_path, monkeypatc
     assert result == [{'talkgroup': '123', 'timestamp': '2026-09-19T12:00:00'}]
 
 
+def test_local_log_rf_activity_tracks_rx_tg_and_talker_resets(tmp_path, monkeypatch):
+    log = tmp_path / 'svxlink.log'
+    log.write_text(
+        '2026-09-19 12:00:00 INFO Rx1: The squelch is OPEN (-42.5)\n'
+        '2026-09-19 12:00:01 INFO ReflectorLogic: Selecting TG #47669\n'
+        '2026-09-19 12:00:02 INFO ReflectorLogic: Talker start on TG #47669: DA6IT-HS\n'
+        '2026-09-19 12:00:03 INFO Rx1: The squelch is CLOSED (-55)\n'
+        '2026-09-19 12:00:04 INFO ReflectorLogic: Talker stop on TG #47669: DA6IT-HS\n'
+        'this line is ignored\n')
+    monkeypatch.setattr(main, 'LOG_PATH', log)
+    result = main.local_log_rf_activity()
+    assert result['source'] == 'SvxLink-Log'
+    assert result['rx'] == {'squelch': 'closed', 'level': -55.0, 'timestamp': '2026-09-19T12:00:03'}
+    assert result['talkgroup'] == {'tg': '47669', 'timestamp': '2026-09-19T12:00:01'}
+    assert result['talker'] is None
+    assert result['updated_at'] == '2026-09-19T12:00:04'
+
+
 def test_state_pty_collector_is_opt_in_read_only_and_normalized(tmp_path, monkeypatch):
     state = tmp_path / 'state.jsonl'
     state.write_text('{"event":"Tx:state","state":true,"timestamp":"1789854400.123"}\n'

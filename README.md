@@ -8,7 +8,7 @@ The dashboard reads these local sources, each configurable through its matching 
 
 - `/etc/svxlink/node_info.json` (`SVXLINK_NODE_INFO_PATH`): only station/location, locator, coordinates, frequencies, mode/type, network, callsign and Default-TG fields are returned.
 - `systemctl show svxlink` plus `/run/svxlink.pid` (`SVXLINK_SERVICE_NAME`, `SVXLINK_PID_PATH`): service state, substate and PID.
-- `/var/log/svxlink` (`SVXLINK_LOG_PATH`): only parsed `ReflectorLogic: Node joined/left` events, event count and timestamp.
+- `/var/log/svxlink` (`SVXLINK_LOG_PATH`): only parsed `ReflectorLogic: Node joined/left` events plus the confirmed `Rx1` squelch, `ReflectorLogic` TG selection and Talker start/stop patterns. The dashboard exposes these as read-only local RF activity under source `SvxLink-Log`; unknown lines are ignored and close/stop reset the corresponding live state.
 - `/etc/svxlink/svxlink.conf` (`SVXLINK_CONFIG_PATH`): only the explicit allowlist `LOGICS`, `DEFAULT_TG`, `CALLSIGN`, `NODE_INFO_FILE`, `LINKS`, and `SERVICES`.
 - An optional normalized JSONL snapshot (`SVXLINK_STATE_PTY_PATH`) written by the separate `svxlink-state-collector` service. It contains only normalized documented `Tx:state` and `Rx:state` values. It is disabled unless `SVXLINK_STATE_PTY_ENABLED=true`.
 
