@@ -1,7 +1,19 @@
 import json
 import stat
+from pathlib import Path
 
 from app.state_pty_collector import parse_state_pty_line, write_snapshot
+from app.state_pty_permissions import bind_permissions
+
+
+def test_state_pty_units_require_the_restart_bound_binder():
+    collector = (Path(__file__).parents[2] / 'deploy/systemd/svxlink-state-collector.service').read_text()
+    binder = (Path(__file__).parents[2] / 'deploy/systemd/svxlink-state-pty-permissions.service').read_text()
+    assert 'After=svxlink.service svxlink-state-pty-permissions.service' in collector
+    assert 'Requires=svxlink.service svxlink-state-pty-permissions.service' in collector
+    assert 'PrivateDevices=' not in collector
+    assert 'WantedBy=svxlink.service' in binder
+    assert 'Before=' not in binder
 
 
 def test_parse_documented_tx_state_line():
@@ -29,3 +41,27 @@ def test_snapshot_is_private_jsonl_and_atomic(tmp_path):
     write_snapshot(output, events)
     assert [json.loads(line) for line in output.read_text().splitlines()] == events
     assert stat.S_IMODE(output.stat().st_mode) == 0o640
+
+
+def test_permission_binder_rejects_symlink(tmp_path):
+    target = tmp_path / 'target'
+    target.write_text('not a PTY')
+    link = tmp_path / 'state'
+    link.symlink_to(target)
+    try:
+        bind_permissions(link)
+    except ValueError as error:
+        assert 'direct character device or FIFO' in str(error)
+    else:
+        raise AssertionError('symlink must be rejected')
+
+
+def test_permission_binder_sets_reader_group_and_read_only_mode(tmp_path, monkeypatch):
+    import os
+
+    path = tmp_path / 'state'
+    os.mkfifo(path, 0o620)
+    monkeypatch.setattr('app.state_pty_permissions.grp.getgrnam', lambda name: type('Group', (), {'gr_gid': 1234})())
+    monkeypatch.setattr('app.state_pty_permissions.os.chown', lambda path, uid, gid: None)
+    bind_permissions(path)
+    assert stat.S_IMODE(path.stat().st_mode) == 0o640

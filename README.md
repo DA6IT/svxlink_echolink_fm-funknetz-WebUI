@@ -20,11 +20,11 @@ There is deliberately no `/api/config` endpoint and no raw log or configuration 
 
 ### STATE_PTY collector setup
 
-`svxlink-state-collector.service` runs as the dedicated `svxlink-state-collector` account, with only group membership in `svxlink-state-reader`; the WebUI account has no raw-PTY access. The operator must configure SvxLink's *read-only* `STATE_PTY` device at `SVXLINK_STATE_PTY_RAW_PATH`, make that character device/FIFO `root:svxlink-state-reader` and group-readable, and set `SVXLINK_STATE_PTY_ENABLED=true`. Do not grant either service account access to `COMMAND_PTY`.
+`svxlink-state-collector.service` runs as the dedicated `svxlink-state-collector` account, with only group membership in `svxlink-state-reader`; the WebUI account has no raw-PTY access. Configure SvxLink's *read-only* `STATE_PTY` device at `SVXLINK_STATE_PTY_RAW_PATH` as a direct character-device/FIFO path (not a symlink), and set `SVXLINK_STATE_PTY_ENABLED=true`. The installed root-owned `svxlink-state-pty-permissions.service` runs after every SvxLink start/restart, changes only that configured path to group `svxlink-state-reader` and mode `0640`, and grants the collector group read-only access (never write access). Do not grant either service account access to `COMMAND_PTY`.
 
 The collector writes an atomically replaced, bounded 200-event JSONL snapshot to `/run/svxlink-webui/state.jsonl` (mode `0640`, owner `svxlink-state-collector:svxlink-webui`). It rejects malformed, oversized, and non-`Tx:state`/`Rx:state` lines; it logs and exits on a closed/unavailable raw PTY so systemd restarts it. The snapshot is replaced instead of appended, so history rotates on every update and cannot grow indefinitely.
 
-After reviewing the host-specific device permissions and `/etc/svxlink-webui/environment`, run `sudo systemctl enable --now svxlink-state-collector`. The installer installs this unit but deliberately does not enable it: a guessed PTY path or widened device permissions would not be safe.
+After reviewing the host-specific PTY path in `/etc/svxlink-webui/environment`, run `sudo systemctl enable --now svxlink-state-collector`. The installer enables the permission binder as a `svxlink.service` dependency, so it is rerun on every SvxLink start/restart; it does not enable the optional collector. The collector does not use `PrivateDevices=true`: systemd cannot safely expand a deployment environment variable in a `BindReadOnlyPaths=` device mount. Its unprivileged account has no `tty` membership and can read only the configured PTY after the binder assigns its dedicated group. The binder fails closed for missing, symlinked, or non-PTY paths; it never changes global `tty` permissions.
 
 ## FM-Funknetz live integration
 
@@ -66,7 +66,7 @@ cd svxlink-webui
 sudo ./install.sh
 ```
 
-The script creates the `svxlink-webui` service user plus a separate `svxlink-state-collector` user and `svxlink-state-reader` group, `/opt/svxlink-webui`, `/var/lib/svxlink-webui`, static root `/var/www/new.shart`, systemd units, and a new Apache site only. It refuses a busy port 12345 and runs `apache2ctl configtest` before reload. It does not edit existing Apache vHosts or SvxLink configuration, and it does not enable the optional raw-PTY collector.
+The script creates the `svxlink-webui` service user plus a separate `svxlink-state-collector` user and `svxlink-state-reader` group, `/opt/svxlink-webui`, `/var/lib/svxlink-webui`, static root `/var/www/new.shart`, systemd units, and a new Apache site only. It refuses a busy port 12345 and runs `apache2ctl configtest` before reload. It does not edit existing Apache vHosts or SvxLink configuration, and it does not enable the optional raw-PTY collector; it enables only the restart-bound permission binder.
 
 ## Verification
 

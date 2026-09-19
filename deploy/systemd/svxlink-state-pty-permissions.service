@@ -1,0 +1,17 @@
+[Unit]
+Description=Bind restrictive read-only permissions for SvxLink STATE_PTY
+Requires=svxlink.service
+BindsTo=svxlink.service
+After=svxlink.service
+PartOf=svxlink.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+RemainAfterExit=yes
+EnvironmentFile=-/etc/svxlink-webui/environment
+ExecStart=/opt/svxlink-webui/.venv/bin/python -m app.state_pty_permissions ${SVXLINK_STATE_PTY_RAW_PATH} --group svxlink-state-reader
+
+[Install]
+WantedBy=svxlink.service

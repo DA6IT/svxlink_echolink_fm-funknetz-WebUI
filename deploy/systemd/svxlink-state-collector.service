@@ -1,7 +1,7 @@
 [Unit]
 Description=SvxLink STATE_PTY to JSONL collector
-After=svxlink.service
-Requires=svxlink.service
+After=svxlink.service svxlink-state-pty-permissions.service
+Requires=svxlink.service svxlink-state-pty-permissions.service
 
 [Service]
 Type=simple
@@ -18,7 +18,6 @@ RuntimeDirectoryMode=0750
 UMask=0027
 NoNewPrivileges=true
 PrivateTmp=true
-PrivateDevices=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/run/svxlink-webui

@@ -16,10 +16,12 @@ cp -a frontend/dist/. /var/www/new.shart/
 chown -R svxlink-webui:svxlink-webui /opt/svxlink-webui /var/lib/svxlink-webui
 install -m 0644 deploy/systemd/svxlink-webui.service /etc/systemd/system/
 install -m 0644 deploy/systemd/svxlink-state-collector.service /etc/systemd/system/
+install -m 0644 deploy/systemd/svxlink-state-pty-permissions.service /etc/systemd/system/
 install -m 0644 deploy/apache/svxlink-webui.conf /etc/apache2/sites-available/
 a2enmod proxy proxy_http proxy_wstunnel headers rewrite
 a2ensite svxlink-webui
 systemctl daemon-reload
+systemctl enable svxlink-state-pty-permissions.service
 apache2ctl configtest
 systemctl enable --now svxlink-webui
 systemctl reload apache2
