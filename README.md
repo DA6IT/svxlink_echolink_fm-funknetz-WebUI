@@ -19,6 +19,10 @@ The UI/API is intentionally read-only. No verified public FM-Funknetz MQTT/telem
 
 TG activation is intentionally disabled. Do not add an open control endpoint or proxy the legacy WebUI/PTY. A future implementation requires a deployment-provided TLS termination plus strong AuthN/AuthZ (prefer mTLS/VPN or OIDC/RBAC), and a least-privilege local broker identity with access to the configured DTMF PTY. This repository contains no credentials or default identity to use; the deployment operator must provide and document that identity before control can be enabled.
 
+### Concrete secure control hand-off
+
+The only designated configuration input for a future control deployment is the root-owned file `/etc/svxlink-webui/control.env` (mode `0600`, owner `root:svxlink-webui`). It is deliberately not created by this repository and must not be committed. Before any `POST /api/control/talkgroups/{tg}` route may be installed, its deployment review must record all of the following: `SVXLINK_CONTROL_ENABLED=true`; a numeric `SVXLINK_TG_ALLOWLIST`; the local, group-restricted DTMF PTY path; and the approved identity boundary (Apache/ingress mTLS client-CA or OIDC issuer, audience, and required operator role). The proxy must terminate TLS, deny every client without that identity, and pass only a verified principal/role to the loopback backend. The backend must construct only `9<TG>#`, write it through a least-privilege local broker, and return success only after a new correlated `ReflectorLogic: Selecting TG #<TG>` line. None of these prerequisites is present here, so no control route exists and no PTY is opened.
+
 ## Architecture
 
 Browser → Apache `:12345` → static React files; `/api/` and `/api/ws/` proxy to Uvicorn at `127.0.0.1:12346`. The backend is read-only and binds to loopback. The dashboard refreshes its status every 15 seconds.
