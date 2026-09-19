@@ -58,12 +58,14 @@ def test_talkgroups_exposes_confirmed_fm_funknetz_data(tmp_path, monkeypatch):
     monkeypatch.setattr(main, 'LOG_PATH', tmp_path / 'missing.log')
     monkeypatch.setattr(main, 'fm_funknetz_live', lambda: {
         'available': True, 'active': {'call': 'DL1ABC', 'tg': '26298'}, 'client_count': None,
+        'live': [{'call': 'DL1ABC', 'tg': '26298'}, {'call': 'DL3XYZ', 'tg': '91166'}],
         'last_heard': [{'call': 'DL2XYZ', 'tg': '26298'}],
     })
     body = client.get('/api/talkgroups').json()
     assert body['external']['available'] is True
     assert body['external']['source'] == 'FM-Funknetz'
     assert body['external']['active'] == {'call': 'DL1ABC', 'tg': '26298'}
+    assert body['external']['live'] == [{'call': 'DL1ABC', 'tg': '26298'}, {'call': 'DL3XYZ', 'tg': '91166'}]
     assert body['control']['enabled'] is False
     assert body['confirmed'] is False
 
@@ -121,3 +123,23 @@ def test_talkgroups_only_confirms_new_allowlisted_selection(tmp_path, monkeypatc
     monkeypatch.setattr(main, 'TG_ALLOWLIST', frozenset({'123'}))
     result = main.talkgroup_activity()
     assert result == [{'talkgroup': '123', 'timestamp': '2026-09-19T12:00:00'}]
+
+
+def test_state_pty_collector_is_opt_in_read_only_and_normalized(tmp_path, monkeypatch):
+    state = tmp_path / 'state.jsonl'
+    state.write_text('{"event":"Tx:state","state":true,"timestamp":"2026-09-19T12:00:00"}\n'
+                     '{"event":"Rx:state","state":false,"squelch":0,"siglev":42}\n'
+                     '{"event":"unknown","state":true}\nnot json\n')
+    monkeypatch.setattr(main, 'STATE_PTY_PATH', state)
+    monkeypatch.setattr(main, 'STATE_PTY_ENABLED', True)
+    result = main.local_rf_telemetry()
+    assert result['available'] is True
+    assert result['tx']['state'] is True
+    assert result['rx'] == {'source': 'STATE_PTY', 'kind': 'rx', 'state': False, 'squelch': 0, 'siglev': 42}
+    monkeypatch.setattr(main, 'STATE_PTY_ENABLED', False)
+    assert main.local_rf_telemetry()['available'] is False
+
+
+def test_normalized_event_input_is_feature_flagged(monkeypatch):
+    monkeypatch.setattr(main, 'LOCAL_EVENT_INPUT_ENABLED', False)
+    assert main.normalized_local_events()['enabled'] is False

@@ -38,6 +38,11 @@ TG_ALLOWLIST = frozenset(
     value for value in (item.strip() for item in os.getenv("SVXLINK_TG_ALLOWLIST", "").split(","))
     if value.isdigit() and value
 )
+# Optional, strictly read-only JSONL state source. The service never opens a
+# command PTY and never writes to this path.
+STATE_PTY_PATH = Path(os.getenv("SVXLINK_STATE_PTY_PATH", "/run/svxlink/state.jsonl"))
+STATE_PTY_ENABLED = os.getenv("SVXLINK_STATE_PTY_ENABLED", "false").lower() in {"1", "true", "yes"}
+LOCAL_EVENT_INPUT_ENABLED = os.getenv("SVXLINK_LOCAL_EVENT_INPUT_ENABLED", "false").lower() in {"1", "true", "yes"}
 
 app = FastAPI(title="SvxLink WebUI", version=VERSION)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
@@ -137,6 +142,66 @@ def talkgroup_activity(limit: int = 100) -> list[dict[str, str]]:
     return selections[-limit:]
 
 
+def _state_event(value: Any) -> tuple[str, dict[str, Any]] | None:
+    """Normalize documented Tx:state/Rx:state JSON without exposing raw input."""
+    if not isinstance(value, dict):
+        return None
+    name = str(value.get("event", value.get("type", ""))).lower().replace("_", ":")
+    payload = value.get("data")
+    if not isinstance(payload, dict):
+        payload = value
+    kind = "tx" if name in {"tx:state", "tx", "transmit:state"} else "rx" if name in {"rx:state", "rx", "receive:state"} else ""
+    if not kind:
+        return None
+    state = payload.get("state", payload.get("active", payload.get("value")))
+    if isinstance(state, str):
+        state = state.lower() in {"1", "true", "on", "active", "open", "squelch"}
+    elif not isinstance(state, bool):
+        state = None
+    result: dict[str, Any] = {"source": "STATE_PTY", "kind": kind, "state": state}
+    timestamp = payload.get("timestamp", value.get("timestamp", payload.get("time", value.get("time"))))
+    if isinstance(timestamp, str) and len(timestamp) <= 64:
+        result["timestamp"] = timestamp
+    for key in ("squelch", "siglev"):
+        number = payload.get(key)
+        if isinstance(number, (int, float)) and not isinstance(number, bool):
+            result[key] = number
+    return kind, result
+
+
+def local_rf_telemetry(limit: int = 100) -> dict[str, Any]:
+    """Read only the tail of a local JSONL state source; never writes to it."""
+    unavailable = {"available": False, "source": "STATE_PTY", "events": [], "tx": None, "rx": None,
+                   "reason": "Lokale RF-Telemetrie nicht aktiviert oder nicht verfügbar."}
+    if not STATE_PTY_ENABLED or not STATE_PTY_PATH.is_file():
+        return unavailable
+    events: list[dict[str, Any]] = []
+    try:
+        for line in STATE_PTY_PATH.read_text(encoding="utf-8", errors="replace").splitlines()[-limit:]:
+            try:
+                normalized = _state_event(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+            if normalized:
+                events.append(normalized[1])
+    except OSError:
+        return unavailable
+    latest = {event["kind"]: event for event in events}
+    return {"available": True, "source": "STATE_PTY", "events": events,
+            "tx": latest.get("tx"), "rx": latest.get("rx"),
+            "reason": "Read-only lokale SHARI-RF-Telemetrie."}
+
+
+def normalized_local_events(limit: int = 100) -> dict[str, Any]:
+    """Feature-gated future event input; disabled means explicitly unavailable."""
+    if not LOCAL_EVENT_INPUT_ENABLED:
+        return {"enabled": False, "available": False, "events": [],
+                "reason": "Lokale Event-Schnittstelle ist feature-geflaggte und derzeit deaktiviert."}
+    telemetry = local_rf_telemetry(limit)
+    return {"enabled": True, "available": telemetry["available"], "events": telemetry["events"],
+            "reason": telemetry["reason"]}
+
+
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
         return None
@@ -189,6 +254,7 @@ def dashboard() -> dict[str, Any]:
     activity = reflector_activity()
     config = parse_ini(CONFIG_PATH)
     return {"node": node, "svxlink": service_status(), "reflector": activity,
+            "rf": local_rf_telemetry(), "events": normalized_local_events(),
             "config": config, "demo": DEMO, "version": VERSION, "updated_at": datetime.now().astimezone().isoformat()}
 
 
@@ -230,7 +296,7 @@ def talkgroups():
         "allowlist_configured": bool(TG_ALLOWLIST),
         "external": {"available": external["available"], "source": "FM-Funknetz",
                      "active": external["active"], "client_count": external["client_count"],
-                     "last_heard": external["last_heard"][:1],
+                     "live": external["live"], "last_heard": external["last_heard"],
                      "reason": external.get("reason", "Aktive TG stammt aus FM-Funknetz-Livedaten.")},
         "control": {"enabled": False, "reason": "TG-Steuerung bleibt bis TLS sowie starker AuthN/AuthZ sicher deaktiviert."},
     }
@@ -239,6 +305,16 @@ def talkgroups():
 @app.get("/api/fm-funknetz/live")
 def fm_funknetz():
     return fm_funknetz_live()
+
+
+@app.get("/api/rf/status")
+def rf_status():
+    return local_rf_telemetry()
+
+
+@app.get("/api/events")
+def events():
+    return normalized_local_events()
 
 
 @app.get("/api/svxlink/logs")
