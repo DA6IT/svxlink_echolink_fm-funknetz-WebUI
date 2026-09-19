@@ -15,7 +15,9 @@ There is deliberately no `/api/config` endpoint and no raw log or configuration 
 
 ## Future external active TG integration
 
-The UI/API is intentionally read-only. A future adapter may provide a separately verified external FM-Funknetz active TG; it must not be inferred from local SvxLink data. Activating a TG locally is explicitly out of scope until both the real local SvxLink control interface and external MQTT/data topics have been proven. That later control path requires TLS plus strong authentication and authorization; it must never be added to the current public HTTP dashboard.
+The UI/API is intentionally read-only. No verified public FM-Funknetz MQTT/telemetry source was found, so the UI explicitly reports “nicht verfügbar” and never simulates an external TG. Local active TG display is based only on a new, numeric, allowlisted `ReflectorLogic: Selecting TG #<TG>` log line; a PTY write is never treated as confirmation. `SVXLINK_TG_ALLOWLIST` is the concrete deployment input for the server-side numeric allowlist.
+
+TG activation is intentionally disabled. Do not add an open control endpoint or proxy the legacy WebUI/PTY. A future implementation requires a deployment-provided TLS termination plus strong AuthN/AuthZ (prefer mTLS/VPN or OIDC/RBAC), and a least-privilege local broker identity with access to the configured DTMF PTY. This repository contains no credentials or default identity to use; the deployment operator must provide and document that identity before control can be enabled.
 
 ## Architecture
 

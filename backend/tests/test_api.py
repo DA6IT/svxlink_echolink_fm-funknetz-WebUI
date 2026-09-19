@@ -50,3 +50,22 @@ def test_config_endpoint_is_not_public():
 def test_websocket():
     with client.websocket_connect('/api/ws/live') as ws:
         assert ws.receive_json()['event'] == 'node.status'
+
+
+def test_talkgroups_never_claim_external_or_control(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, 'CONFIG_PATH', tmp_path / 'missing.conf')
+    monkeypatch.setattr(main, 'LOG_PATH', tmp_path / 'missing.log')
+    body = client.get('/api/talkgroups').json()
+    assert body['external'] == {'available': False, 'reason': 'Keine bestätigte FM-Funknetz-Datenquelle konfiguriert.'}
+    assert body['control']['enabled'] is False
+    assert body['confirmed'] is False
+
+
+def test_talkgroups_only_confirms_new_allowlisted_selection(tmp_path, monkeypatch):
+    log = tmp_path / 'svxlink.log'
+    log.write_text('2026-09-19 12:00:00 ReflectorLogic: Selecting TG #123\n'
+                   '2026-09-19 12:01:00 ReflectorLogic: Selecting TG #999\n')
+    monkeypatch.setattr(main, 'LOG_PATH', log)
+    monkeypatch.setattr(main, 'TG_ALLOWLIST', frozenset({'123'}))
+    result = main.talkgroup_activity()
+    assert result == [{'talkgroup': '123', 'timestamp': '2026-09-19T12:00:00'}]

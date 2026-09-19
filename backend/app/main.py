@@ -22,6 +22,12 @@ NODE_INFO_PATH = Path(os.getenv("SVXLINK_NODE_INFO_PATH", "/etc/svxlink/node_inf
 LOG_PATH = Path(os.getenv("SVXLINK_LOG_PATH", "/var/log/svxlink"))
 PID_PATH = Path(os.getenv("SVXLINK_PID_PATH", "/run/svxlink.pid"))
 SERVICE_NAME = os.getenv("SVXLINK_SERVICE_NAME", "svxlink")
+# This is deliberately a deployment setting, not user input.  It is used for
+# displaying/validating local TG data even while control remains disabled.
+TG_ALLOWLIST = frozenset(
+    value for value in (item.strip() for item in os.getenv("SVXLINK_TG_ALLOWLIST", "").split(","))
+    if value.isdigit() and value
+)
 
 app = FastAPI(title="SvxLink WebUI", version=VERSION)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
@@ -29,6 +35,11 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], a
 NODE_KEYS = {"Location", "Locator", "LAT", "LONG", "TXFREQ", "RXFREQ", "Mode", "Type", "nodeLocation", "Verbund", "DefaultTG", "Callsign", "CALLSIGN"}
 CONFIG_KEYS = {"LOGICS", "DEFAULT_TG", "CALLSIGN", "NODE_INFO_FILE", "LINKS", "SERVICES"}
 JOIN_RE = re.compile(r"(?P<time>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+.*?Node (?P<event>joined|left):\s*(?P<callsign>[A-Za-z0-9/_-]+)", re.I)
+SELECTING_TG_RE = re.compile(
+    r"(?P<time>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+.*?"
+    r"ReflectorLogic: Selecting TG #(?P<tg>\d+)\s*$",
+    re.I,
+)
 
 
 def parse_ini(path: Path) -> dict[str, dict[str, str]]:
@@ -101,6 +112,21 @@ def reflector_activity(limit: int = 100) -> dict[str, Any]:
     return {"events": events, "count": len(events), "last_heard": events[-1] if events else None, "available": bool(log_files())}
 
 
+def talkgroup_activity(limit: int = 100) -> list[dict[str, str]]:
+    """Read confirmed local TG selections; never treats a PTY write as success."""
+    selections: list[dict[str, str]] = []
+    for path in log_files():
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()[-limit:]
+        except OSError:
+            continue
+        for line in lines:
+            match = SELECTING_TG_RE.search(line)
+            if match and match.group("tg") in TG_ALLOWLIST:
+                selections.append({"talkgroup": match.group("tg"), "timestamp": match.group("time").replace(" ", "T")})
+    return selections[-limit:]
+
+
 def dashboard() -> dict[str, Any]:
     node = read_node_info(NODE_INFO_PATH)
     activity = reflector_activity()
@@ -138,7 +164,15 @@ def last_heard():
 def talkgroups():
     config = parse_ini(CONFIG_PATH)
     values = [value for section in config.values() for key, value in section.items() if key.upper() == "DEFAULT_TG"]
-    return {"active": values[0] if values else None, "available": bool(values)}
+    confirmed = talkgroup_activity()
+    return {
+        "active": confirmed[-1]["talkgroup"] if confirmed else (values[0] if values else None),
+        "confirmed": bool(confirmed),
+        "last_selection": confirmed[-1] if confirmed else None,
+        "allowlist_configured": bool(TG_ALLOWLIST),
+        "external": {"available": False, "reason": "Keine bestätigte FM-Funknetz-Datenquelle konfiguriert."},
+        "control": {"enabled": False, "reason": "TG-Steuerung bleibt bis TLS sowie starker AuthN/AuthZ sicher deaktiviert."},
+    }
 
 
 @app.get("/api/svxlink/logs")
