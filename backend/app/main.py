@@ -49,19 +49,31 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], a
 
 NODE_KEYS = {"Location", "Locator", "LAT", "LONG", "TXFREQ", "RXFREQ", "Mode", "Type", "nodeLocation", "Verbund", "DefaultTG", "Callsign", "CALLSIGN"}
 CONFIG_KEYS = {"LOGICS", "DEFAULT_TG", "CALLSIGN", "NODE_INFO_FILE", "LINKS", "SERVICES"}
+LOG_TIMESTAMP = r"(?:\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?|\d{1,2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2}\.\d{3})"
 JOIN_RE = re.compile(r"(?P<time>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+.*?Node (?P<event>joined|left):\s*(?P<callsign>[A-Za-z0-9/_-]+)", re.I)
 SELECTING_TG_RE = re.compile(
-    r"(?P<time>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+.*?"
+    rf"(?P<time>{LOG_TIMESTAMP})\s+.*?"
     r"ReflectorLogic: Selecting TG #(?P<tg>\d+)\s*$",
     re.I,
 )
 LOCAL_RF_RE = re.compile(
-    r"^(?P<time>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+.*?"
+    rf"^(?P<time>{LOG_TIMESTAMP})\s+.*?"
     r"(?:Rx1: The squelch is (?P<squelch>OPEN|CLOSED) \((?P<level>-?\d+(?:\.\d+)?)\)|"
     r"ReflectorLogic: Selecting TG #(?P<tg>\d+)|"
     r"ReflectorLogic: Talker (?P<talker_event>start|stop) on TG #(?P<talker_tg>\d+): (?P<callsign>[A-Za-z0-9/_-]+))$",
     re.I,
 )
+
+
+def normalize_log_timestamp(stamp: str) -> str:
+    """Normalize the two supported SvxLink timestamp formats when valid."""
+    try:
+        if re.fullmatch(r"\d{1,2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2}\.\d{3}", stamp):
+            return datetime.strptime(stamp, "%d %b %Y %H:%M:%S.%f").isoformat(timespec="milliseconds")
+        parsed = datetime.fromisoformat(stamp.replace(" ", "T"))
+        return parsed.isoformat(timespec="milliseconds" if parsed.microsecond else "seconds")
+    except ValueError:
+        return stamp.replace(" ", "T")
 
 
 def parse_ini(path: Path) -> dict[str, dict[str, str]]:
@@ -145,7 +157,7 @@ def talkgroup_activity(limit: int = 100) -> list[dict[str, str]]:
         for line in lines:
             match = SELECTING_TG_RE.search(line)
             if match and match.group("tg") in TG_ALLOWLIST:
-                selections.append({"talkgroup": match.group("tg"), "timestamp": match.group("time").replace(" ", "T")})
+                selections.append({"talkgroup": match.group("tg"), "timestamp": normalize_log_timestamp(match.group("time"))})
     return selections[-limit:]
 
 
@@ -162,11 +174,11 @@ def local_log_rf_activity() -> dict[str, Any]:
             for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
                 match = LOCAL_RF_RE.match(line.strip())
                 if match:
-                    lines.append((match.group("time"), match))
+                    lines.append((normalize_log_timestamp(match.group("time")), match))
         except OSError:
             continue
     for stamp, match in sorted(lines, key=lambda item: item[0]):
-        timestamp = stamp.replace(" ", "T")
+        timestamp = normalize_log_timestamp(stamp)
         if match.group("squelch"):
             result["rx"] = {"squelch": match.group("squelch").lower(),
                             "level": float(match.group("level")), "timestamp": timestamp}

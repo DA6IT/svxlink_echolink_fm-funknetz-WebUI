@@ -143,6 +143,33 @@ def test_local_log_rf_activity_tracks_rx_tg_and_talker_resets(tmp_path, monkeypa
     assert result['updated_at'] == '2026-09-19T12:00:04'
 
 
+def test_local_log_rf_activity_accepts_production_sv_link_timestamps(tmp_path, monkeypatch):
+    log = tmp_path / 'svxlink.log'
+    log.write_text(
+        '19 Sep 2026 22:23:43.114 INFO Rx1: The squelch is OPEN (-42.5)\n'
+        '19 Sep 2026 22:23:44.114 INFO ReflectorLogic: Selecting TG #47669\n'
+        '19 Sep 2026 22:23:45.114 INFO ReflectorLogic: Talker start on TG #47669: DA6IT-HS\n')
+    monkeypatch.setattr(main, 'LOG_PATH', log)
+    result = main.local_log_rf_activity()
+    assert result['rx'] == {'squelch': 'open', 'level': -42.5, 'timestamp': '2026-09-19T22:23:43.114'}
+    assert result['talkgroup'] == {'tg': '47669', 'timestamp': '2026-09-19T22:23:44.114'}
+    assert result['talker'] == {'tg': '47669', 'callsign': 'DA6IT-HS', 'timestamp': '2026-09-19T22:23:45.114'}
+    assert result['updated_at'] == '2026-09-19T22:23:45.114'
+
+
+def test_local_log_rf_activity_resets_production_states_on_close_and_stop(tmp_path, monkeypatch):
+    log = tmp_path / 'svxlink.log'
+    log.write_text(
+        '19 Sep 2026 22:23:43.114 INFO Rx1: The squelch is OPEN (-42.5)\n'
+        '19 Sep 2026 22:23:44.114 INFO ReflectorLogic: Talker start on TG #47669: DA6IT-HS\n'
+        '19 Sep 2026 22:23:46.114 INFO Rx1: The squelch is CLOSED (-55)\n'
+        '19 Sep 2026 22:23:47.114 INFO ReflectorLogic: Talker stop on TG #47669: DA6IT-HS\n')
+    monkeypatch.setattr(main, 'LOG_PATH', log)
+    result = main.local_log_rf_activity()
+    assert result['rx']['squelch'] == 'closed'
+    assert result['talker'] is None
+
+
 def test_state_pty_collector_is_opt_in_read_only_and_normalized(tmp_path, monkeypatch):
     state = tmp_path / 'state.jsonl'
     state.write_text('{"event":"Tx:state","state":true,"timestamp":"1789854400.123"}\n'
