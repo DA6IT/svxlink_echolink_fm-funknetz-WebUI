@@ -52,13 +52,27 @@ def test_websocket():
         assert ws.receive_json()['event'] == 'node.status'
 
 
-def test_talkgroups_never_claim_external_or_control(tmp_path, monkeypatch):
+def test_talkgroups_exposes_confirmed_fm_funknetz_data(tmp_path, monkeypatch):
     monkeypatch.setattr(main, 'CONFIG_PATH', tmp_path / 'missing.conf')
     monkeypatch.setattr(main, 'LOG_PATH', tmp_path / 'missing.log')
+    monkeypatch.setattr(main, 'fm_funknetz_live', lambda: {
+        'available': True, 'active': {'call': 'DL1ABC', 'tg': '26298'}, 'client_count': None,
+        'last_heard': [{'call': 'DL2XYZ', 'tg': '26298'}],
+    })
     body = client.get('/api/talkgroups').json()
-    assert body['external'] == {'available': False, 'reason': 'Keine bestätigte FM-Funknetz-Datenquelle konfiguriert.'}
+    assert body['external']['available'] is True
+    assert body['external']['source'] == 'FM-Funknetz'
+    assert body['external']['active'] == {'call': 'DL1ABC', 'tg': '26298'}
     assert body['control']['enabled'] is False
     assert body['confirmed'] is False
+
+
+def test_fm_funknetz_failure_is_safe(monkeypatch):
+    monkeypatch.setattr(main, '_get_json', lambda url: (_ for _ in ()).throw(OSError('offline')))
+    result = main.fm_funknetz_live()
+    assert result['available'] is False
+    assert result['live'] == []
+    assert result['mqtt']['topics'] == ['/server/statethr', '/server/statethr/1', '/server/state/logins']
 
 
 def test_talkgroups_only_confirms_new_allowlisted_selection(tmp_path, monkeypatch):

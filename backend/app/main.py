@@ -8,6 +8,8 @@ import platform
 import re
 import subprocess
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -22,6 +24,12 @@ NODE_INFO_PATH = Path(os.getenv("SVXLINK_NODE_INFO_PATH", "/etc/svxlink/node_inf
 LOG_PATH = Path(os.getenv("SVXLINK_LOG_PATH", "/var/log/svxlink"))
 PID_PATH = Path(os.getenv("SVXLINK_PID_PATH", "/run/svxlink.pid"))
 SERVICE_NAME = os.getenv("SVXLINK_SERVICE_NAME", "svxlink")
+FM_LIVE_URL = os.getenv("FM_FUNKNETZ_LIVE_URL", "https://dashboard.fm-funknetz.de/data/live.json")
+FM_LASTHEARD_URL = os.getenv("FM_FUNKNETZ_LASTHEARD_URL", "https://dashboard.fm-funknetz.de/data/lastheard.json")
+# Deployment configuration only; the backend never writes to this public broker.
+FM_MQTT_ENABLED = os.getenv("FM_FUNKNETZ_MQTT_ENABLED", "false").lower() in {"1", "true", "yes"}
+FM_MQTT_WS_URL = os.getenv("FM_FUNKNETZ_MQTT_WS_URL", "wss://status.thueringen.link/mqtt")
+FM_MQTT_TOPICS = ("/server/statethr", "/server/statethr/1", "/server/state/logins")
 # This is deliberately a deployment setting, not user input.  It is used for
 # displaying/validating local TG data even while control remains disabled.
 TG_ALLOWLIST = frozenset(
@@ -127,6 +135,37 @@ def talkgroup_activity(limit: int = 100) -> list[dict[str, str]]:
     return selections[-limit:]
 
 
+def _get_json(url: str) -> Any:
+    """Fetch a confirmed public feed with one bounded reconnect attempt."""
+    for attempt in range(2):
+        try:
+            request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "svxlink-webui/0.2"})
+            with urllib.request.urlopen(request, timeout=4) as response:
+                return json.loads(response.read(512 * 1024).decode("utf-8"))
+        except (OSError, urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+            if attempt:
+                raise
+            time.sleep(0.1)
+    raise RuntimeError("unreachable")
+
+
+def fm_funknetz_live() -> dict[str, Any]:
+    """Read current FM-Funknetz dashboard telemetry with failure-safe reconnect."""
+    try:
+        live, heard = _get_json(FM_LIVE_URL), _get_json(FM_LASTHEARD_URL)
+        if not isinstance(live, list) or not isinstance(heard, list):
+            raise ValueError("feed is not an array")
+        return {"available": True, "source": "FM-Funknetz Dashboard-Livedaten",
+                "active": live[0] if live else None, "live": live[:100], "last_heard": heard[:100],
+                "client_count": None, "updated_at": datetime.now().astimezone().isoformat(),
+                "mqtt": {"enabled": FM_MQTT_ENABLED, "ws_url": FM_MQTT_WS_URL, "topics": list(FM_MQTT_TOPICS)}}
+    except (OSError, urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
+        return {"available": False, "source": "FM-Funknetz Dashboard-Livedaten", "active": None,
+                "live": [], "last_heard": [], "client_count": None,
+                "reason": "FM-Funknetz-Livedaten momentan nicht erreichbar.",
+                "mqtt": {"enabled": FM_MQTT_ENABLED, "ws_url": FM_MQTT_WS_URL, "topics": list(FM_MQTT_TOPICS)}}
+
+
 def dashboard() -> dict[str, Any]:
     node = read_node_info(NODE_INFO_PATH)
     activity = reflector_activity()
@@ -165,14 +204,23 @@ def talkgroups():
     config = parse_ini(CONFIG_PATH)
     values = [value for section in config.values() for key, value in section.items() if key.upper() == "DEFAULT_TG"]
     confirmed = talkgroup_activity()
+    external = fm_funknetz_live()
     return {
         "active": confirmed[-1]["talkgroup"] if confirmed else (values[0] if values else None),
         "confirmed": bool(confirmed),
         "last_selection": confirmed[-1] if confirmed else None,
         "allowlist_configured": bool(TG_ALLOWLIST),
-        "external": {"available": False, "reason": "Keine bestätigte FM-Funknetz-Datenquelle konfiguriert."},
+        "external": {"available": external["available"], "source": "FM-Funknetz",
+                     "active": external["active"], "client_count": external["client_count"],
+                     "last_heard": external["last_heard"][:1],
+                     "reason": external.get("reason", "Aktive TG stammt aus FM-Funknetz-Livedaten.")},
         "control": {"enabled": False, "reason": "TG-Steuerung bleibt bis TLS sowie starker AuthN/AuthZ sicher deaktiviert."},
     }
+
+
+@app.get("/api/fm-funknetz/live")
+def fm_funknetz():
+    return fm_funknetz_live()
 
 
 @app.get("/api/svxlink/logs")

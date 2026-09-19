@@ -13,9 +13,15 @@ The dashboard reads these local sources, each configurable through its matching 
 
 There is deliberately no `/api/config` endpoint and no raw log or configuration output. The API has no write endpoint, shell command endpoint, service control, MQTT client, or radio/PTT control.
 
+## FM-Funknetz live integration
+
+The read-only `/api/fm-funknetz/live` endpoint consumes the confirmed CORS-enabled dashboard feeds `https://dashboard.fm-funknetz.de/data/live.json` and `lastheard.json`. It returns the active talker/TG and Last Heard entries under the explicit source label **FM-Funknetz Dashboard-Livedaten**. A transient feed failure is retried once and then reported as unavailable; no synthetic radio data is shown. The dashboard refreshes this data with its regular 15-second status cycle.
+
+`FM_FUNKNETZ_LIVE_URL` and `FM_FUNKNETZ_LASTHEARD_URL` configure those feeds. Confirmed MQTT-over-WebSocket deployment values are `wss://status.thueringen.link/mqtt` and the read-only topics `/server/statethr`, `/server/statethr/1`, and `/server/state/logins`; they are represented by `FM_FUNKNETZ_MQTT_WS_URL` and `FM_FUNKNETZ_MQTT_ENABLED`. MQTT remains disabled by default: do not enable it unless an operator provides and validates a server-side, read-only adapter. The browser does not connect to the public broker and this project never publishes or controls it. The current public feeds do not expose a reliable client count, so the API reports that field as unavailable rather than guessing.
+
 ## Future external active TG integration
 
-The UI/API is intentionally read-only. No verified public FM-Funknetz MQTT/telemetry source was found, so the UI explicitly reports “nicht verfügbar” and never simulates an external TG. Local active TG display is based only on a new, numeric, allowlisted `ReflectorLogic: Selecting TG #<TG>` log line; a PTY write is never treated as confirmation. `SVXLINK_TG_ALLOWLIST` is the concrete deployment input for the server-side numeric allowlist.
+The UI/API remains intentionally read-only. The confirmed FM-Funknetz dashboard feeds are used only for clearly labelled external telemetry; they never alter the local active TG. Local active TG display is based only on a new, numeric, allowlisted `ReflectorLogic: Selecting TG #<TG>` log line; a PTY write is never treated as confirmation. `SVXLINK_TG_ALLOWLIST` is the concrete deployment input for the server-side numeric allowlist.
 
 TG activation is intentionally disabled. Do not add an open control endpoint or proxy the legacy WebUI/PTY. A future implementation requires a deployment-provided TLS termination plus strong AuthN/AuthZ (prefer mTLS/VPN or OIDC/RBAC), and a least-privilege local broker identity with access to the configured DTMF PTY. This repository contains no credentials or default identity to use; the deployment operator must provide and document that identity before control can be enabled.
 
