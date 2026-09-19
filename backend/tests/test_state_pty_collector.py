@@ -14,6 +14,9 @@ def test_state_pty_units_require_the_restart_bound_binder():
     assert 'PrivateDevices=' not in collector
     assert 'WantedBy=svxlink.service' in binder
     assert 'Before=' not in binder
+    assert 'WorkingDirectory=/opt/svxlink-webui/backend' in binder
+    assert 'Environment=PYTHONPATH=/opt/svxlink-webui/backend' in binder
+    assert 'ExecStart=/opt/svxlink-webui/.venv/bin/python -m app.state_pty_permissions' in binder
 
 
 def test_parse_documented_tx_state_line():
