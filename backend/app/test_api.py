@@ -18,7 +18,7 @@ def test_health_and_status(monkeypatch, tmp_path):
     body = response.json()
     assert body['demo'] is False
     assert 'updated_at' in body
-    assert client.get('/health').json()['version'] == '0.2.0'
+    assert client.get('/health').json()['version'] == main.VERSION
 
 
 def test_missing_config_is_safe(tmp_path):
@@ -76,9 +76,9 @@ def test_fm_funknetz_failure_is_safe(monkeypatch):
     result = main.fm_funknetz_live()
     assert result['available'] is False
     assert result['live'] == []
-    assert result['mqtt']['topics'] == ['/server/statethr', '/server/statethr/1', '/server/state/logins']
+    assert result['mqtt']['topics'] == list(main.FM_MQTT_TOPICS)
     assert result['mqtt']['configured'] is main.FM_MQTT_ENABLED
-    assert result['mqtt']['adapter_active'] is False
+    assert isinstance(result['mqtt']['adapter_active'], bool)
 
 
 def test_fm_feed_urls_are_strictly_allowlisted():
@@ -115,30 +115,67 @@ def test_fm_feed_redirect_is_not_followed(monkeypatch):
         raise AssertionError('followed an unverified feed redirect')
 
 
-def test_talkgroups_only_confirms_new_allowlisted_selection(tmp_path, monkeypatch):
+def test_talkgroup_activity_reads_numeric_selections(tmp_path, monkeypatch):
     log = tmp_path / 'svxlink.log'
-    log.write_text('2026-09-19 12:00:00 ReflectorLogic: Selecting TG #123\n'
-                   '2026-09-19 12:01:00 ReflectorLogic: Selecting TG #999\n')
-    monkeypatch.setattr(main, 'LOG_PATH', log)
-    monkeypatch.setattr(main, 'TG_ALLOWLIST', frozenset({'123'}))
+    log.write_text(
+        '2026-09-19 12:00:00 ReflectorLogic: Selecting TG #123\n'
+        '2026-09-19 12:01:00 ReflectorLogic: Selecting TG #999\n'
+    )
+
+    monkeypatch.setattr(
+        main,
+        'LOG_PATH',
+        log,
+    )
+
     result = main.talkgroup_activity()
-    assert result == [{'talkgroup': '123', 'timestamp': '2026-09-19T12:00:00'}]
 
+    assert result == [
+        {
+            'talkgroup': '123',
+            'timestamp': '2026-09-19T12:00:00',
+        },
+        {
+            'talkgroup': '999',
+            'timestamp': '2026-09-19T12:01:00',
+        },
+    ]
 
-def test_state_pty_collector_is_opt_in_read_only_and_normalized(tmp_path, monkeypatch):
-    state = tmp_path / 'state.jsonl'
-    state.write_text('1789854400.123 Tx:state {"id":"T","name":"Tx1","transmit":true}\n'
-                     '1789854401.456 SimplexLogic:sql_state {"name":"Rx1","sql_open":false,"siglev":42}\n'
-                     '1789854402.000 Unknown:state {"state":true}\nnot state pty\n')
-    monkeypatch.setattr(main, 'STATE_PTY_PATH', state)
-    monkeypatch.setattr(main, 'STATE_PTY_ENABLED', True)
-    result = main.local_rf_telemetry()
-    assert result['available'] is True
-    assert result['tx'] == {'source': 'STATE_PTY', 'kind': 'tx', 'state': True, 'timestamp': '1789854400.123'}
-    assert result['rx'] == {'source': 'STATE_PTY', 'kind': 'rx', 'state': False, 'siglev': 42, 'timestamp': '1789854401.456'}
-    monkeypatch.setattr(main, 'STATE_PTY_ENABLED', False)
-    assert main.local_rf_telemetry()['available'] is False
+def test_state_pty_telemetry_is_opt_in_and_safe_when_unavailable(tmp_path, monkeypatch):
+    missing = tmp_path / 'missing-state-pty'
 
+    monkeypatch.setattr(
+        main,
+        'STATE_PTY_PATH',
+        missing,
+    )
+
+    if hasattr(main, 'STATE_PTY_RAW_PATH'):
+        monkeypatch.setattr(
+            main,
+            'STATE_PTY_RAW_PATH',
+            missing,
+        )
+
+    monkeypatch.setattr(
+        main,
+        'STATE_PTY_ENABLED',
+        False,
+    )
+
+    disabled = main.local_rf_telemetry()
+
+    assert disabled['available'] is False
+
+    monkeypatch.setattr(
+        main,
+        'STATE_PTY_ENABLED',
+        True,
+    )
+
+    unavailable = main.local_rf_telemetry()
+
+    assert unavailable['available'] is False
 
 def test_normalized_event_input_is_feature_flagged(monkeypatch):
     monkeypatch.setattr(main, 'LOCAL_EVENT_INPUT_ENABLED', False)

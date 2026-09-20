@@ -97,6 +97,8 @@ type TalkgroupsResponse = {
     enabled: boolean;
     reason: string;
   };
+  using_default?: boolean | null;
+
 };
 
 type View =
@@ -2199,9 +2201,7 @@ function App() {
       }
 
       if (
-        !talkgroups
-          .control
-          .enabled
+        !talkgroups?.control.enabled
       ) {
         setTgControlError({
           tg: value,
@@ -2219,7 +2219,7 @@ function App() {
         value !== '0' &&
         value ===
           String(
-            talkgroups.active ??
+            talkgroups?.active ??
             ''
           )
       ) {
@@ -2953,8 +2953,7 @@ function App() {
                             {/* TG LEAVE HOME TILE */}
 
                             {item.connected &&
-                              talkgroups
-                                .using_default ===
+                              talkgroups?.using_default ===
                                 false && (
                                 <span
                                   className={`tg-leave-tile ${
@@ -3609,9 +3608,7 @@ function App() {
                         )
                       }
                       aria-disabled={
-                        !talkgroups
-                          .control
-                          .enabled
+                        !talkgroups?.control.enabled
                       }
                       title={
                         talkgroups
@@ -3669,8 +3666,7 @@ function App() {
                           {/* TG LEAVE FM TILE */}
 
                           {item.connected &&
-                            talkgroups
-                              .using_default ===
+                            talkgroups?.using_default ===
                               false && (
                               <span
                                 className={`tg-leave-tile ${
@@ -3930,9 +3926,7 @@ function App() {
                                     : ''
                                 }`}
                                 disabled={
-                                  !talkgroups
-                                    .control
-                                    .enabled
+                                  !talkgroups?.control.enabled
                                 }
                                 onClick={() =>
                                   selectTalkgroup(
