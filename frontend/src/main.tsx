@@ -915,7 +915,16 @@ function App() {
 
 
 
-  // --- ECHOLINK SEARCH UI V2 ---
+  
+    // --- DIRECT CONNECT UI V2 ---
+
+    const [
+      directTg,
+      setDirectTg,
+    ] = useState('');
+
+
+// --- ECHOLINK SEARCH UI V2 ---
 
   const [
     echoSearchQuery,
@@ -2472,6 +2481,286 @@ function App() {
     }
   };
 
+
+    const connectDirectTalkgroup =
+      async () => {
+
+        const tg =
+          directTg.trim();
+
+
+        if (
+          !/^\d+$/.test(tg)
+        ) {
+
+          setTgControlError({
+            tg,
+            message:
+              'Bitte eine gültige numerische Talkgroup eingeben.',
+          });
+
+          return;
+
+        }
+
+
+        await selectTalkgroup(
+          tg
+        );
+
+      };
+
+
+    const connectEchoDirect =
+      async () => {
+
+        const query =
+          echoSearchQuery
+            .trim()
+            .toUpperCase();
+
+
+        if (!query) {
+          return;
+        }
+
+
+        setEchoSearchError(
+          null
+        );
+
+        setEchoSearchDone(
+          false
+        );
+
+
+        /*
+         * Reine EchoLink Node-ID:
+         * direkt verbinden.
+         */
+        if (
+          /^\d+$/.test(query)
+        ) {
+
+          await echoConnect(
+            query
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * Bei einem Rufzeichen zuerst
+         * über das bereits vorhandene
+         * Directory auflösen.
+         */
+        setEchoSearchBusy(
+          true
+        );
+
+
+        try {
+
+          const response =
+            await fetch(
+              `/api/echolink-webui/search?q=${encodeURIComponent(query)}`,
+              {
+                cache: 'no-store',
+              }
+            );
+
+
+          const body =
+            await response
+              .json()
+              .catch(
+                () => ({})
+              );
+
+
+          if (!response.ok) {
+
+            throw new Error(
+              body.detail ||
+              'EchoLink-Suche fehlgeschlagen.'
+            );
+
+          }
+
+
+          const results =
+            Array.isArray(
+              body.results
+            )
+              ? body.results
+              : [];
+
+
+          /*
+           * Ergebnisse gleichzeitig auch
+           * in der normalen Directory-
+           * Ansicht anzeigen.
+           */
+          setEchoSearchResults(
+            results
+          );
+
+          setEchoSearchDone(
+            true
+          );
+
+
+          const onlineResults =
+            results.filter(
+              (result: any) => {
+
+                const nodeId =
+                  String(
+                    result?.node_id ||
+                    ''
+                  );
+
+
+                return (
+                  /^\d+$/.test(nodeId) &&
+                  (
+                    result?.online === true ||
+                    result?.status === 'on'
+                  )
+                );
+
+              }
+            );
+
+
+          /*
+           * Exaktes Rufzeichen hat Vorrang.
+           */
+          let target =
+            onlineResults.find(
+              (result: any) =>
+                String(
+                  result?.callsign ||
+                  ''
+                )
+                  .trim()
+                  .toUpperCase() ===
+                query
+            );
+
+
+          /*
+           * Gibt es genau einen möglichen
+           * Online-Treffer, ist die Auswahl
+           * ebenfalls eindeutig.
+           */
+          if (
+            !target &&
+            onlineResults.length === 1
+          ) {
+
+            target =
+              onlineResults[0];
+
+          }
+
+
+          if (!target) {
+
+            if (
+              onlineResults.length > 1
+            ) {
+
+              throw new Error(
+                'Mehrere passende Online-Nodes gefunden. Bitte unten den gewünschten Node auswählen.'
+              );
+
+            }
+
+
+            const first =
+              results[0];
+
+
+            if (
+              first?.status === 'busy'
+            ) {
+
+              throw new Error(
+                `${
+                  first.callsign ||
+                  query
+                } ist momentan BUSY.`
+              );
+
+            }
+
+
+            if (
+              first?.status === 'offline' ||
+              first?.online === false
+            ) {
+
+              throw new Error(
+                `${
+                  first.callsign ||
+                  query
+                } ist momentan OFFLINE.`
+              );
+
+            }
+
+
+            throw new Error(
+              'Keine online verfügbare EchoLink-Node gefunden.'
+            );
+
+          }
+
+
+          await echoConnect(
+            String(
+              target.node_id
+            )
+          );
+
+
+          /*
+           * Bei erfolgreicher Direktwahl
+           * brauchen wir die Suchresultate
+           * nicht offen stehen lassen.
+           */
+          setEchoSearchResults(
+            []
+          );
+
+          setEchoSearchDone(
+            false
+          );
+
+
+        } catch (error) {
+
+          setEchoSearchError(
+            error instanceof Error
+              ? error.message
+              : 'EchoLink-Verbindung konnte nicht gestartet werden.'
+          );
+
+
+        } finally {
+
+          setEchoSearchBusy(
+            false
+          );
+
+        }
+
+      };
+
+
   if (error) {
     return (
       <div className="loading-screen">
@@ -3529,6 +3818,114 @@ function App() {
               </div>
 </section>
 
+
+              <section className="section fm-direct-section">
+
+                <div className="fm-direct-panel">
+
+                  <div className="fm-direct-copy">
+
+                    <span className="eyebrow">
+                      DIREKTWAHL
+                    </span>
+
+                    <h2>
+                      Talkgroup verbinden
+                    </h2>
+
+                    <p>
+                      Beliebige FM-Funknetz
+                      Talkgroup direkt auswählen.
+                    </p>
+
+                  </div>
+
+
+                  <form
+                    className="fm-direct-form"
+                    onSubmit={(event) => {
+
+                      event.preventDefault();
+
+                      connectDirectTalkgroup();
+
+                    }}
+                  >
+
+                    <span className="fm-direct-prefix">
+                      TG
+                    </span>
+
+
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="off"
+                      value={directTg}
+                      onChange={(event) => {
+
+                        setDirectTg(
+                          event.target.value.replace(
+                            /\D/g,
+                            ''
+                          )
+                        );
+
+                        setTgControlError(
+                          null
+                        );
+
+                      }}
+                      placeholder="Talkgroup-ID"
+                      aria-label="Talkgroup-ID"
+                    />
+
+
+                    <button
+                      type="submit"
+                      disabled={
+                        !directTg.trim() ||
+                        pendingTg !== null ||
+                        !talkgroups.control.enabled
+                      }
+                    >
+
+                      {pendingTg ===
+                      directTg.trim()
+                        ? 'Verbinde…'
+                        : 'Verbinden'}
+
+                    </button>
+
+                  </form>
+
+
+                  {!talkgroups.control.enabled && (
+
+                    <div className="fm-direct-error">
+                      TG-Steuerung ist aktuell
+                      nicht verfügbar.
+                    </div>
+
+                  )}
+
+
+                  {tgControlError &&
+                    tgControlError.tg ===
+                      directTg.trim() && (
+
+                    <div className="fm-direct-error">
+                      {tgControlError.message}
+                    </div>
+
+                  )}
+
+                </div>
+
+              </section>
+
+
                         <section className="section">
               <div className="section-heading">
                 <div>
@@ -4268,7 +4665,7 @@ function App() {
 
                   event.preventDefault();
 
-                  echoSearch();
+                  connectEchoDirect();
 
                 }}
               >
@@ -4288,7 +4685,9 @@ function App() {
                 />
 
                 <button
-                  type="submit"
+                  type="button"
+                    className="el2-search-secondary"
+                    onClick={() => echoSearch()}
                   disabled={
                     echoSearchBusy ||
                     !echoSearchQuery.trim()
@@ -4301,7 +4700,26 @@ function App() {
 
                 </button>
 
-              </form>
+              
+
+                  <button
+                    type="submit"
+                    className="el2-connect-button"
+                    disabled={
+                      echoSearchBusy ||
+                      echoBusy !== null ||
+                      !echoSearchQuery.trim()
+                    }
+                  >
+
+                    {echoSearchBusy ||
+                    echoBusy !== null
+                      ? 'Verbinde…'
+                      : 'Verbinden'}
+
+                  </button>
+
+</form>
 
 
               {echoSearchError && (

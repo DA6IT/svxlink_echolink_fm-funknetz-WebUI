@@ -8011,3 +8011,280 @@ button {
   }
 
 }
+
+
+
+/* ==========================================================
+   DIRECT CONNECT UI V2
+   ========================================================== */
+
+.fm-direct-section {
+  margin-top: 22px;
+}
+
+
+.fm-direct-panel {
+  display: grid;
+
+  grid-template-columns:
+    minmax(220px, .8fr)
+    minmax(320px, 1.2fr);
+
+  align-items: center;
+
+  gap: 28px;
+
+  padding: 24px 26px;
+
+  border:
+    1px solid var(--da6it-line);
+
+  border-radius:
+    var(--da6it-radius);
+
+  background:
+    linear-gradient(
+      135deg,
+      #fff 0%,
+      var(--da6it-soft) 100%
+    );
+
+  box-shadow:
+    0 12px 34px
+    rgba(28,83,72,.06);
+}
+
+
+.fm-direct-copy h2 {
+  margin: 5px 0 6px;
+
+  color:
+    var(--da6it-ink);
+
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+
+.fm-direct-copy p {
+  margin: 0;
+
+  color:
+    var(--da6it-muted);
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+.fm-direct-form {
+  display: grid;
+
+  grid-template-columns:
+    auto minmax(0,1fr) auto;
+
+  gap: 8px;
+
+  align-items: stretch;
+}
+
+
+.fm-direct-prefix {
+  display: flex;
+
+  min-width: 48px;
+
+  align-items: center;
+  justify-content: center;
+
+  border:
+    1px solid var(--da6it-line);
+
+  border-radius: 14px;
+
+  background:
+    var(--da6it-soft-cyan);
+
+  color:
+    var(--da6it-teal);
+
+  font-size: 11px;
+  font-weight: 850;
+
+  letter-spacing: .08em;
+}
+
+
+.fm-direct-form input {
+  min-width: 0;
+
+  padding: 12px 14px;
+
+  border:
+    1px solid var(--da6it-line);
+
+  border-radius: 14px;
+
+  outline: none;
+
+  background: #fff;
+
+  color:
+    var(--da6it-ink);
+
+  font: inherit;
+}
+
+
+.fm-direct-form input:focus {
+  border-color:
+    rgba(19,185,196,.65);
+
+  box-shadow:
+    0 0 0 4px
+    rgba(19,185,196,.09);
+}
+
+
+.fm-direct-form button,
+.el2-connect-button {
+  padding: 0 18px;
+
+  border: 0;
+
+  border-radius: 14px;
+
+  background:
+    var(--da6it-green);
+
+  color: #fff;
+
+  font: inherit;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+
+.fm-direct-form button:hover:not(:disabled),
+.el2-connect-button:hover:not(:disabled) {
+  background:
+    var(--da6it-green-dark);
+}
+
+
+.fm-direct-form button:disabled,
+.el2-connect-button:disabled {
+  opacity: .48;
+
+  cursor: default;
+}
+
+
+.fm-direct-error {
+  grid-column: 2;
+
+  padding: 9px 12px;
+
+  border:
+    1px solid rgba(190,62,62,.16);
+
+  border-radius: 11px;
+
+  background:
+    rgba(190,62,62,.055);
+
+  color:
+    #a23d3d;
+
+  font-size: 11px;
+  font-weight: 650;
+}
+
+
+/*
+ * EchoLink hat schon ein schönes Suchfeld.
+ * Wir machen daraus jetzt:
+ *
+ * [ Rufzeichen / Node-ID ] [ Suchen ] [ Verbinden ]
+ */
+
+.el2-search {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0,1fr)
+    auto
+    auto;
+
+  gap: 10px;
+}
+
+
+.el2-search-secondary {
+  background:
+    var(--da6it-soft) !important;
+
+  color:
+    var(--da6it-ink) !important;
+
+  border:
+    1px solid
+    var(--da6it-line) !important;
+}
+
+
+.el2-connect-button {
+  min-height: 42px;
+}
+
+
+@media (max-width: 800px) {
+
+  .fm-direct-panel {
+    grid-template-columns:
+      1fr;
+
+    gap: 16px;
+  }
+
+
+  .fm-direct-error {
+    grid-column: 1;
+  }
+
+}
+
+
+@media (max-width: 600px) {
+
+  .fm-direct-form {
+    grid-template-columns:
+      auto
+      minmax(0,1fr);
+  }
+
+
+  .fm-direct-form button {
+    grid-column:
+      1 / -1;
+
+    min-height: 42px;
+  }
+
+
+  .el2-search {
+    grid-template-columns:
+      1fr 1fr;
+  }
+
+
+  .el2-search input {
+    grid-column:
+      1 / -1;
+  }
+
+}
+

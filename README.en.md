@@ -4,7 +4,7 @@ A modern responsive web interface for **SvxLink**, **SHARI**, **FM-Funknetz**, a
 
 The application combines a FastAPI backend with a React/Vite frontend and provides live data, operational status, and selected control functions in a browser.
 
-> **Status:** Pre-release / active development.
+> **Status:** Pre-release / active development.  
 > The WebUI is already running on a real SvxLink/SHARI installation. The generic public installer is still being prepared.
 
 [German version](README.md)
