@@ -1,174 +1,78 @@
 # SvxLink WebUI
 
-Eine moderne, responsive Weboberfläche für **SvxLink**, **SHARI**, **FM-Funknetz** und **EchoLink**.
+Eine responsive Weboberfläche für **SvxLink**, **SHARI**, **FM-Funknetz** und **EchoLink**. Sie kombiniert ein FastAPI-Backend mit einem React/Vite-Frontend und zeigt Live-Daten, Statusinformationen und ausgewählte Steuerfunktionen.
 
-Die Anwendung kombiniert ein FastAPI-Backend mit einem React/Vite-Frontend und stellt Live-Daten, Statusinformationen und ausgewählte Steuerfunktionen im Browser bereit.
-
-> **Status:** Pre-Release / aktive Entwicklung.  
-> Die WebUI läuft bereits produktiv auf einem realen SvxLink-/SHARI-System. Der generische öffentliche Installer wird noch vorbereitet.
+> **Status:** Pre-Release / aktive Entwicklung. Eine funktionierende Referenzinstallation läuft produktiv. Der interaktive Installer ist vorhanden und trägt die Version `1.0.0-pre1`; weitere saubere Installationen auf frischen Debian-/Ubuntu-Systemen stehen noch aus.
 
 [English version](README.en.md)
 
 ## Funktionen
 
-### Übersicht
 - responsive Oberfläche für Desktop, Tablet und Smartphone
-- Live-Status für FM-Funknetz und EchoLink
-- direkte Navigation zu den Betriebsbereichen
-- keine erfundenen Betriebsdaten im Produktionsmodus
+- Live-Status, MQTT-Aktivität und Talkgroup-Auswahl für FM-Funknetz
+- EchoLink-Verzeichnisstatus, Suche, Favoriten sowie eingehende und ausgehende Verbindungen
+- direkte FM-Talkgroup-Steuerung über SvxLink
+- EchoLink-Modul aktivieren/deaktivieren und direkte Verbindung zu einem Rufzeichen oder Node
+- WebSocket-basierte Statusaktualisierung und persistente Verbindungshistorie
 
-### FM-Funknetz
-- aktuelle lokale Talkgroup
-- aktive Talkgroups in Echtzeit
-- MQTT-basierte Live-Aktivität
-- Anzeige des aktuellen Rufzeichens
-- Talkgroup-Namen
-- eigene Talkgroup-Favoriten
-- direkte Talkgroup-Auswahl über SvxLink
-- Talkgroup verlassen / Standard-TG wiederherstellen
-- Top-Talkgroups für 24 Stunden, 7 Tage und 30 Tage
-- Node- und Aktivitätsinformationen
-- Buddy-/Last-Seen-Funktionen
-- WebSocket-basierte Statusaktualisierung
+Details: [FM-Funknetz](docs/FM-FUNKNETZ.md) · [EchoLink](docs/ECHOLINK.md)
 
-Details: [docs/FM-FUNKNETZ.md](docs/FM-FUNKNETZ.md)
-
-### EchoLink
-- eigenes EchoLink-Rufzeichen und eigene Node-ID
-- EchoLink Directory Status
-- EchoLink-Modul aktivieren/deaktivieren
-- aktuelle eingehende und ausgehende Verbindungen
-- Verbindungsdauer und Trennen
-- Suche nach Rufzeichen oder Node-ID
-- ONLINE / BUSY / OFFLINE
-- registrierte, aber aktuell nicht eingeloggte Nodes werden erkannt
-- EchoLink-Nodes als Favoriten speichern
-- Favoriten direkt verbinden
-- Live-Status gespeicherter Nodes
-- persistente Verbindungshistorie
-
-Details: [docs/ECHOLINK.md](docs/ECHOLINK.md)
-
-## Architektur
+## Architektur und Standardports
 
 ```text
-Browser
-   │
-   ▼
-Apache :12345
-   │
-   ├── React/Vite Frontend
-   ├── /api/    ─────────► FastAPI/Uvicorn 127.0.0.1:12346
-   └── /api/ws/ ─────────► WebSockets
+Browser -> Apache :12345 -> Frontend
+                         -> /api/ und /api/ws/ -> FastAPI/Uvicorn 127.0.0.1:12346
 ```
 
-Das Backend bindet nur an Loopback. Apache liefert das Frontend aus und übernimmt Reverse Proxy und WebSocket Proxy.
-
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-
-## Referenzpfade
-
-```text
-/opt/svxlink-webui              Anwendung
-/opt/svxlink-webui/backend      Backend
-/opt/svxlink-webui/frontend     Frontend
-/var/www/new.shart              aktuelles DocumentRoot
-/var/lib/svxlink-webui          persistente WebUI-Daten
-/etc/svxlink-webui/environment  Laufzeitkonfiguration
-```
-
-Diese Pfade entsprechen der aktuellen Referenzinstallation. Der spätere Installer soll Pfade soweit möglich erkennen oder konfigurierbar machen.
+Das Backend bindet standardmäßig nur an Loopback. Die Ports sind im Installer änderbar; `12345` (WebUI) und `12346` (interne API) sind die Vorgaben.
 
 ## Installation
 
-Der generische öffentliche Installer ist noch nicht fertig.
+Der interaktive Installer liegt als `install.sh` im Repository. Er ist ein Pre-Release (`1.0.0-pre1`), keine Zusicherung für beliebige Systeme. Eine produktive Referenzinstallation existiert; Validierung auf weiteren frischen Debian-/Ubuntu-Systemen steht noch aus.
 
-Aktueller Aufbau: [docs/INSTALLATION.md](docs/INSTALLATION.md)
+Schnellstart (als normaler Benutzer geklont):
 
-## Konfiguration
+```bash
+git clone https://github.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI.git
+cd svxlink_echolink_fm-funknetz-WebUI
+sudo ./install.sh
+```
 
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+Alternativ in einer bereits geöffneten Root-Shell:
+
+```bash
+./install.sh
+```
+
+Der Installer verlangt `EUID=0` und verwendet innerhalb des Skripts absichtlich kein weiteres `sudo`. Er fragt interaktiv alle standortabhängigen Werte ab. Details, Voraussetzungen, Rückrollverhalten und Einschränkungen: [Installationsanleitung](docs/INSTALLATION.md).
 
 ## Sicherheit
 
-Die WebUI ist **nicht read-only**. Sie kann reale SvxLink-Steuerbefehle auslösen.
+Die WebUI ist nicht read-only und kann reale SvxLink-Steuerbefehle auslösen. Das Backend lauscht standardmäßig nur lokal, Apache kann die Oberfläche jedoch im Netz veröffentlichen. Für produktive Systeme geeigneten Zugriffsschutz einsetzen, etwa VPN, Firewall/IP-Allowlist oder Reverse-Proxy-Authentifizierung. Zugangsdaten und Schlüssel niemals in Dokumentation oder öffentliche Beispiele übernehmen.
 
-Sie sollte daher nicht ungeschützt öffentlich erreichbar sein. Empfohlen werden z. B. VPN, Firewall/IP-Allowlist, Reverse-Proxy-Authentifizierung oder SSO.
+Details: [Sicherheit](docs/SECURITY.md) · [Datenschutz](docs/PRIVACY.md)
 
-Details: [docs/SECURITY.md](docs/SECURITY.md)
+## Projektstatus und bekannte Einschränkungen
 
-## Datenschutz und öffentliche Beispiele
+FM-Funknetz-Live-Aktivität, Talkgroup-Steuerung, EchoLink-Status/Suche/Verbindungen, REST API, WebSockets und responsive Oberfläche wurden produktiv erprobt. Vor einem allgemeinen Release stehen insbesondere saubere Installationen auf weiteren frischen Systemen, Upgrade-/Uninstall-Workflow, vollständige Authentifizierung und weitere Installer-Erprobung aus.
 
-Live-Daten dürfen im Betrieb angezeigt werden. In README, Screenshots, Demo-Daten und festen UI-Platzhaltern sollen jedoch keine zufällig beobachteten fremden Rufzeichen oder fremden EchoLink Node-IDs dauerhaft eingebaut werden.
-
-Geeignete statische Beispiele:
-
-```text
-DA6IT
-DA6IT-L
-DB0XYZ-R
-<CALLSIGN>
-<NODE_ID>
-<TALKGROUP>
-```
-
-Details: [docs/PRIVACY.md](docs/PRIVACY.md)
+Die EchoLink-Modulaktivierung verwendet im aktuellen Steuerpfad die Modul-ID `2`. EchoLink-Suche nutzt öffentliche Webquellen; Änderungen deren HTML-Struktur können Anpassungen erfordern.
 
 ## Entwicklung
-
-Backend:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
+PYTHONPATH=backend .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 12346
 
-PYTHONPATH=backend .venv/bin/uvicorn app.main:app   --host 127.0.0.1   --port 12346
-```
-
-Frontend:
-
-```bash
 cd frontend
 npm install
-npm run build
 npm run lint
+npm run build
 ```
-
-## Projektstatus
-
-Bereits produktiv getestet:
-- FM-Funknetz MQTT und Live-Aktivität
-- Talkgroup-Auswahl und Favoriten
-- Top-Talkgroups
-- EchoLink Directory Status und Suche
-- EchoLink ONLINE/BUSY/OFFLINE
-- EchoLink Favoriten
-- EchoLink Connect/Disconnect
-- EchoLink History
-- FastAPI REST API und WebSockets
-- responsive Oberfläche
-
-Vor dem ersten öffentlichen Release:
-- generischen Installer fertigstellen
-- Upgrade- und Uninstall-Workflow
-- automatische SvxLink-Erkennung vervollständigen
-- Authentifizierung/Autorisierung
-- Tests auf frischen Systemen
-- öffentliche UI-Beispiele/Screenshots anonymisieren
-- Lizenz/Release-Informationen finalisieren
-
-## Bekannte Pre-Release-Einschränkungen
-
-Die EchoLink-Modulaktivierung verwendet im aktuellen Steuerpfad noch die Modul-ID `2`. Vor dem öffentlichen Release muss diese vollständig aus `ModuleEchoLink.conf` übernommen werden.
-
-Die EchoLink-Suche verwendet öffentliche EchoLink-Webquellen. Änderungen an deren HTML-Struktur können eine Anpassung des Backend-Providers erfordern.
 
 ## Dokumentation
 
-- [Installation](docs/INSTALLATION.md)
-- [Konfiguration](docs/CONFIGURATION.md)
-- [Architektur](docs/ARCHITECTURE.md)
-- [FM-Funknetz](docs/FM-FUNKNETZ.md)
-- [EchoLink](docs/ECHOLINK.md)
-- [Sicherheit](docs/SECURITY.md)
-- [Datenschutz / öffentliche Beispiele](docs/PRIVACY.md)
+- [Installation](docs/INSTALLATION.md) · [English](docs/INSTALLATION.en.md)
+- [Konfiguration](docs/CONFIGURATION.md) · [Architektur](docs/ARCHITECTURE.md)
+- [FM-Funknetz](docs/FM-FUNKNETZ.md) · [EchoLink](docs/ECHOLINK.md)

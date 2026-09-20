@@ -1,153 +1,68 @@
 # Installation
 
-## Status
+## Status und Geltungsbereich
 
-Der automatische öffentliche Installer befindet sich noch in Entwicklung. Dieses Dokument beschreibt die aktuelle funktionierende Referenzinstallation.
+`install.sh` ist ein interaktiver Pre-Release-Installer in Version `1.0.0-pre1`. Eine funktionierende Referenzinstallation läuft produktiv. Saubere Installationen auf weiteren frischen Debian-/Ubuntu-Systemen sind noch nicht abgeschlossen; daher keine allgemeine Kompatibilitätszusage ableiten.
 
-## Zielsystem
+Unterstützt werden Debian-/Ubuntu-basierte Systeme mit systemd. Der Installer erkennt vorhandenes SvxLink oder bietet an, `svxlink-server` und Kalibrierwerkzeuge zu installieren. Er benötigt Netzwerkzugriff für Paket-, Python- und Node-Abhängigkeiten.
 
-Aktuell vorgesehen:
-- Debian oder Ubuntu
-- bestehende SvxLink-Installation
-- systemd
-- Apache 2
-- Python 3 / venv
-- Node.js / npm
+## Schnellstart
 
-## Verzeichnisse
-
-```text
-/opt/svxlink-webui              Anwendung
-/opt/svxlink-webui/.venv        Python venv
-/var/www/new.shart              Frontend-Deployment
-/var/lib/svxlink-webui          persistente Daten
-/etc/svxlink-webui/environment  Konfiguration
-```
-
-## Backend
+Als normaler Benutzer klonen und den Installer einmal mit Root-Rechten starten:
 
 ```bash
-cd /opt/svxlink-webui
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
+git clone https://github.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI.git
+cd svxlink_echolink_fm-funknetz-WebUI
+sudo ./install.sh
 ```
 
-Aktueller systemd-Aufbau:
-
-```ini
-[Unit]
-Description=SvxLink WebUI FastAPI backend
-After=network.target
-
-[Service]
-Type=simple
-User=svxlink-webui
-Group=svxlink-webui
-WorkingDirectory=/opt/svxlink-webui/backend
-EnvironmentFile=-/etc/svxlink-webui/environment
-ExecStart=/opt/svxlink-webui/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 12346
-Restart=on-failure
-NoNewPrivileges=true
-PrivateTmp=true
-
-[Install]
-WantedBy=multi-user.target
-```
-
-## Frontend
+Oder aus einer bereits geöffneten Root-Shell:
 
 ```bash
-cd /opt/svxlink-webui/frontend
-npm install
-npm run build
+./install.sh
 ```
 
-`frontend/dist/` wird in der Referenzinstallation nach `/var/www/new.shart/` kopiert.
+`install.sh` prüft `EUID=0`; innerhalb des Skripts wird absichtlich kein `sudo` verwendet. Das Skript ist interaktiv: Werte prüfen, Eingaben vornehmen und den angezeigten Installationsplan erst dann bestätigen. Niemals Passwörter, AUTH_KEYs, reale Rufzeichen oder Node-IDs in Tickets, Dokumentation oder öffentliche Logs kopieren.
 
-## Apache
+## Abgefragte Werte und Standardwerte
 
-Aktuell:
+Der Installer übernimmt vorhandene Werte, wenn sie erkannt werden, oder fragt sie ab.
 
-```text
-Frontend/API-Port: 12345
-Backend:           127.0.0.1:12346
-```
+| Bereich | Standard / Verhalten |
+| --- | --- |
+| WebUI-Quellinstallation | `/opt/svxlink-webui` |
+| Apache DocumentRoot | `/var/www/svxlink-webui` |
+| Service-Benutzer | `svxlink-webui` (nie `root`) |
+| WebUI-Port | `12345` |
+| Interne API | `127.0.0.1:12346` |
+| SvxLink Control PTY | `/var/lib/svxlink/control/simplex_ctrl` |
+| SvxLink State PTY | `/var/lib/svxlink/state/webui_state` |
+| FM-Funknetz | Rufzeichen, AUTH_KEY, Standard-TG, Locator, Frequenz, Leistung, Antenne, Audio und PTT |
+| EchoLink | Rufzeichen, Passwort, Modul-ID (Vorgabe `2`), optionale Node-ID, SYSOP und Standort |
 
-Beispiel:
+Die UI- und API-Ports müssen unterschiedlich sein. Belegte Ports lösen eine Warnung und Rückfrage aus. Ein Hostname ist optional; ohne Hostname ist Zugriff per IP vorgesehen.
 
-```apache
-<VirtualHost *:12345>
-    DocumentRoot /var/www/new.shart
+## Was der Installer einrichtet
 
-    <Directory /var/www/new.shart>
-        Require all granted
-        Options -Indexes
-    </Directory>
+Nach Bestätigung installiert bzw. prüft der Installer Apache, Python/venv/pip, Node.js/npm, rsync, curl, CA-Zertifikate sowie Audio-/USB-Werkzeuge. Node.js muss mindestens Version 18 sein. Er erzeugt eine Python-venv, installiert Backend-Abhängigkeiten, führt Frontend-Lint und -Build aus und kopiert `frontend/dist/` in den gewählten DocumentRoot.
 
-    ProxyPass /api/ws/ ws://127.0.0.1:12346/api/ws/
-    ProxyPassReverse /api/ws/ ws://127.0.0.1:12346/api/ws/
+Er legt den Service-Benutzer und die Gruppen `svxlink-state-reader` und `svxlink-control` an, richtet die WebUI- und State-Collector-Dienste ein und konfiguriert Apache als Reverse Proxy einschließlich WebSocket-Proxy. Das Backend bindet nur an `127.0.0.1`; Apache bedient die WebUI auf dem gewählten UI-Port.
 
-    ProxyPass /api/ http://127.0.0.1:12346/api/
-    ProxyPassReverse /api/ http://127.0.0.1:12346/api/
-</VirtualHost>
-```
+Für SvxLink setzt bzw. ergänzt der Installer `DTMF_CTRL_PTY` und `STATE_PTY`. Der State-Collector schreibt normalisierte Daten nach `/run/svxlink-webui/state.jsonl`. Die PTY-Berechtigungen werden über überwachte systemd-Units gesetzt; keine feste `/dev/pts/N`-Nummer annehmen, weil sich das Ziel nach SvxLink-Neustarts ändern kann.
 
-Vor Reload:
+Bei gewünschter FM-Funknetz-Konfiguration richtet der Installer `ReflectorLogic` und `NetLink` ein. Direkte FM-Talkgroup-Auswahl und das Verlassen einer Talkgroup bzw. die Rückkehr zur Standard-TG erfolgen in der WebUI über SvxLink. Bei gewünschter EchoLink-Konfiguration schreibt er `ModuleEchoLink.conf` und installiert die lokale Event-Bridge `/usr/share/svxlink/events.d/local/EchoLinkWebUI.tcl`; die originale EchoLink-Eventdatei wird nicht verändert. Die WebUI kann das EchoLink-Modul steuern sowie direkt zu Rufzeichen oder Nodes verbinden und Verbindungen trennen.
 
-```bash
-apache2ctl configtest
-```
+## Sicherung, Prüfung und Rückrollen
 
-## SvxLink State PTY
+Vor Änderungen sichert der Installer die betroffenen Konfigurations-, systemd- und Apache-Dateien in einem zeitgestempelten Verzeichnis unter `/var/backups/svxlink-webui/`. Bei einem Fehler werden diese Dateien, Apache-Aktivierungen und Dienste soweit möglich zurückgerollt. Bereits installierte Pakete, Benutzer und Gruppen werden absichtlich nicht entfernt.
 
-Beispiel:
+Vor dem Neustart prüft der Installer Python-Dateien, führt `pytest backend/app/test_api.py -q` aus und testet die Apache-Konfiguration. Danach startet er SvxLink, die WebUI-Dienste und Apache neu und prüft sowohl `/health` auf der Loopback-API als auch die WebUI über Apache.
 
-```ini
-STATE_PTY=/var/lib/svxlink/state/webui_state
-```
+## Sicherheits- und Betriebsgrenzen
 
-## SvxLink Control PTY
+- Die WebUI kann reale Steuerbefehle senden und besitzt keine eigene Anmeldung. Nicht ungeschützt im Internet veröffentlichen; VPN, Firewall/IP-Allowlist oder Reverse-Proxy-Authentifizierung verwenden.
+- SvxLink- und EchoLink-Konfigurationen mit Zugangsdaten werden auf `root:svxlink` und Modus `0640` eingeschränkt, sofern die Gruppe existiert. Die Laufzeitumgebung wird als `root:<WebUI-Gruppe>` mit `0640` geschrieben.
+- EchoLink kann abhängig von Netzwerk und Router weiterhin eingehende UDP-Ports `5198/5199` benötigen.
+- Das Skript aktualisiert vorhandene Konfigurationen gezielt, ist aber kein vollständiger Upgrade- oder Uninstall-Workflow. Vor produktiven Änderungen Backups prüfen und die interaktiven Angaben sorgfältig kontrollieren.
 
-Beispiel:
-
-```ini
-DTMF_CTRL_PTY=/var/lib/svxlink/control/simplex_ctrl
-```
-
-Der WebUI-Service benötigt Schreibzugriff auf das tatsächliche PTY-Ziel. Keine feste `/dev/pts/X`-Nummer verwenden; sie kann sich nach einem SvxLink-Neustart ändern.
-
-## EchoLink Event Bridge
-
-Lokaler Handler:
-
-```text
-/usr/share/svxlink/events.d/local/EchoLinkWebUI.tcl
-```
-
-Die originale `/usr/share/svxlink/events.d/EchoLink.tcl` wird nicht verändert.
-
-Roh-Events:
-
-```text
-/var/lib/svxlink/echolink-webui/events.tsv
-```
-
-## Ziel des öffentlichen Installers
-
-Der Installer soll:
-1. Voraussetzungen prüfen
-2. SvxLink-Konfiguration erkennen
-3. State-/Control-PTY erkennen
-4. EchoLink-Konfiguration erkennen
-5. Backups erstellen
-6. Service-Benutzer einrichten
-7. Python-Umgebung installieren
-8. Frontend bauen
-9. Apache und systemd konfigurieren
-10. PTY-Berechtigungen sicher setzen
-11. EchoLink Event Bridge installieren
-12. Konfiguration testen
-13. Dienste kontrolliert neu starten
-14. bei Fehlern zurückrollen
-
-Keine persönlichen Rufzeichen, Node-IDs, Hostnamen oder festen `/dev/pts/*`-Pfade voraussetzen.
+Weitere Themen: [Konfiguration](CONFIGURATION.md), [Architektur](ARCHITECTURE.md), [Sicherheit](SECURITY.md).

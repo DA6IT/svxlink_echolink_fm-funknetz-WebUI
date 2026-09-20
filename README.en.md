@@ -1,174 +1,78 @@
 # SvxLink WebUI
 
-A modern responsive web interface for **SvxLink**, **SHARI**, **FM-Funknetz**, and **EchoLink**.
+A responsive web interface for **SvxLink**, **SHARI**, **FM-Funknetz**, and **EchoLink**. It combines a FastAPI backend with a React/Vite frontend and provides live data, operating status, and selected control functions.
 
-The application combines a FastAPI backend with a React/Vite frontend and provides live data, operational status, and selected control functions in a browser.
-
-> **Status:** Pre-release / active development.  
-> The WebUI is already running on a real SvxLink/SHARI installation. The generic public installer is still being prepared.
+> **Status:** Pre-release / active development. A working reference installation is running in production. The interactive installer exists and is version `1.0.0-pre1`; further clean installations on fresh Debian/Ubuntu systems are still pending.
 
 [German version](README.md)
 
 ## Features
 
-### Overview
-- responsive desktop, tablet and mobile UI
-- live FM-Funknetz and EchoLink status
-- direct navigation to operation pages
-- no invented production radio data
+- responsive desktop, tablet, and mobile interface
+- FM-Funknetz live status, MQTT activity, and talkgroup selection
+- EchoLink directory status, search, favourites, and incoming/outgoing connections
+- direct FM talkgroup control through SvxLink
+- activate/deactivate the EchoLink module and directly connect to a callsign or node
+- WebSocket-based state updates and persistent connection history
 
-### FM-Funknetz
-- currently selected local talkgroup
-- active talkgroups in real time
-- MQTT-based live activity
-- current callsign
-- talkgroup names
-- favourite talkgroups
-- direct talkgroup selection through SvxLink
-- leave talkgroup / restore default TG
-- Top Talkgroups for 24 hours, 7 days and 30 days
-- node and activity information
-- buddy and last-seen functions
-- WebSocket-based state updates
+Details: [FM-Funknetz](docs/FM-FUNKNETZ.en.md) · [EchoLink](docs/ECHOLINK.en.md)
 
-Details: [docs/FM-FUNKNETZ.en.md](docs/FM-FUNKNETZ.en.md)
-
-### EchoLink
-- local EchoLink callsign and Node ID
-- EchoLink directory status
-- activate/deactivate EchoLink module
-- current incoming and outgoing connections
-- connection duration and disconnect
-- search by callsign or Node ID
-- ONLINE / BUSY / OFFLINE
-- registered nodes can be found while offline
-- save EchoLink favourites
-- directly connect to favourites
-- live status for saved nodes
-- persistent connection history
-
-Details: [docs/ECHOLINK.en.md](docs/ECHOLINK.en.md)
-
-## Architecture
+## Architecture and default ports
 
 ```text
-Browser
-   │
-   ▼
-Apache :12345
-   │
-   ├── React/Vite frontend
-   ├── /api/    ─────────► FastAPI/Uvicorn 127.0.0.1:12346
-   └── /api/ws/ ─────────► WebSockets
+Browser -> Apache :12345 -> frontend
+                         -> /api/ and /api/ws/ -> FastAPI/Uvicorn 127.0.0.1:12346
 ```
 
-The backend binds to loopback only. Apache serves the frontend and provides the reverse proxy and WebSocket proxy.
-
-Details: [docs/ARCHITECTURE.en.md](docs/ARCHITECTURE.en.md)
-
-## Reference paths
-
-```text
-/opt/svxlink-webui              application
-/opt/svxlink-webui/backend      backend
-/opt/svxlink-webui/frontend     frontend
-/var/www/new.shart              current document root
-/var/lib/svxlink-webui          persistent WebUI data
-/etc/svxlink-webui/environment  runtime configuration
-```
-
-These paths describe the current reference installation. The future installer should detect or configure paths where appropriate.
+The backend binds to loopback by default. The installer can change the ports; `12345` (WebUI) and `12346` (internal API) are the defaults.
 
 ## Installation
 
-The generic public installer is not finished yet.
+The interactive installer is available as `install.sh` in this repository. It is a pre-release (`1.0.0-pre1`), not a guarantee for arbitrary systems. A production reference installation exists; validation on further fresh Debian/Ubuntu systems is pending.
 
-Current layout: [docs/INSTALLATION.en.md](docs/INSTALLATION.en.md)
+Quick start (when cloned as an unprivileged user):
 
-## Configuration
+```bash
+git clone https://github.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI.git
+cd svxlink_echolink_fm-funknetz-WebUI
+sudo ./install.sh
+```
 
-[docs/CONFIGURATION.en.md](docs/CONFIGURATION.en.md)
+Alternatively, from an already-open root shell:
+
+```bash
+./install.sh
+```
+
+The installer requires `EUID=0` and deliberately does not use `sudo` internally. It interactively prompts for all site-specific values. See the [installation guide](docs/INSTALLATION.en.md) for prerequisites, rollback behaviour, and limitations.
 
 ## Security
 
-The WebUI is **not read-only**. It can issue real SvxLink control commands.
+The WebUI is not read-only and can send real SvxLink control commands. The backend listens locally by default, but Apache can publish the UI on a network. Use appropriate access protection in production, such as a VPN, firewall/IP allowlist, or reverse-proxy authentication. Never copy credentials or keys into documentation or public examples.
 
-It should not be exposed publicly without suitable protection. Recommended options include VPN, firewall/IP allowlist, reverse-proxy authentication, or SSO.
+Details: [Security](docs/SECURITY.en.md) · [Privacy](docs/PRIVACY.en.md)
 
-Details: [docs/SECURITY.en.md](docs/SECURITY.en.md)
+## Project status and known limitations
 
-## Privacy and public examples
+FM-Funknetz live activity, talkgroup control, EchoLink status/search/connections, the REST API, WebSockets, and the responsive UI have been tested in production. Before a general release, further clean installations on fresh systems, an upgrade/uninstall workflow, complete authentication, and additional installer validation remain outstanding.
 
-Live data may be displayed during actual operation. README files, screenshots, demo data, and static UI placeholders should not permanently contain randomly observed third-party callsigns or EchoLink Node IDs.
-
-Suitable static examples:
-
-```text
-DA6IT
-DA6IT-L
-DB0XYZ-R
-<CALLSIGN>
-<NODE_ID>
-<TALKGROUP>
-```
-
-Details: [docs/PRIVACY.en.md](docs/PRIVACY.en.md)
+The current EchoLink activation path uses module ID `2`. EchoLink search uses public web sources; changes to their HTML structure may require provider changes.
 
 ## Development
-
-Backend:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
+PYTHONPATH=backend .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 12346
 
-PYTHONPATH=backend .venv/bin/uvicorn app.main:app   --host 127.0.0.1   --port 12346
-```
-
-Frontend:
-
-```bash
 cd frontend
 npm install
-npm run build
 npm run lint
+npm run build
 ```
-
-## Project status
-
-Successfully tested:
-- FM-Funknetz MQTT and live activity
-- talkgroup selection and favourites
-- Top Talkgroups
-- EchoLink directory status and search
-- EchoLink ONLINE/BUSY/OFFLINE
-- EchoLink favourites
-- EchoLink connect/disconnect
-- EchoLink history
-- FastAPI REST API and WebSockets
-- responsive UI
-
-Before the first public release:
-- finish the generic installer
-- upgrade and uninstall workflow
-- complete automatic SvxLink detection
-- authentication/authorization
-- clean-install testing
-- anonymize public UI examples/screenshots
-- finalize licensing and release information
-
-## Known pre-release limitations
-
-The current EchoLink control path still uses module ID `2` when activating EchoLink. Before public release, this must be read entirely from `ModuleEchoLink.conf`.
-
-EchoLink search uses public EchoLink web sources. Changes to their HTML structure may require updates to the backend provider.
 
 ## Documentation
 
-- [Installation](docs/INSTALLATION.en.md)
-- [Configuration](docs/CONFIGURATION.en.md)
-- [Architecture](docs/ARCHITECTURE.en.md)
-- [FM-Funknetz](docs/FM-FUNKNETZ.en.md)
-- [EchoLink](docs/ECHOLINK.en.md)
-- [Security](docs/SECURITY.en.md)
-- [Privacy / public examples](docs/PRIVACY.en.md)
+- [Installation](docs/INSTALLATION.en.md) · [Deutsch](docs/INSTALLATION.md)
+- [Configuration](docs/CONFIGURATION.en.md) · [Architecture](docs/ARCHITECTURE.en.md)
+- [FM-Funknetz](docs/FM-FUNKNETZ.en.md) · [EchoLink](docs/ECHOLINK.en.md)
