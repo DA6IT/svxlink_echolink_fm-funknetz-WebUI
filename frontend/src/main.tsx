@@ -2787,7 +2787,7 @@ function App() {
       node,
       'Callsign',
       'CALLSIGN'
-    ) || 'DA6IT-L'
+    ) || 'SvxLink Node'
   );
 
   const location = String(
@@ -4680,7 +4680,7 @@ function App() {
                       event.target.value
                     )
                   }
-                  placeholder="Rufzeichen oder Node-ID, z. B. DA6IT-L"
+                  placeholder="Rufzeichen oder Node-ID, z. B. Node"
                   autoComplete="off"
                 />
 
