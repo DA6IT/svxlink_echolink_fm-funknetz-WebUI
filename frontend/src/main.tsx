@@ -915,7 +915,6 @@ function App() {
 
 
 
-  
     // --- DIRECT CONNECT UI V2 ---
 
     const [
@@ -4859,8 +4858,6 @@ function App() {
                     : 'Suchen'}
 
                 </button>
-
-              
 
                   <button
                     type="submit"

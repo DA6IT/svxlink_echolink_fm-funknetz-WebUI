@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -341,6 +342,223 @@ def talkgroup_activity(limit: int = 100) -> list[dict[str, str]]:
     return selections[-limit:]
 
 
+
+# Stable confirmed TG tracker.
+#
+# talkgroup_activity() intentionally returns only recent history.
+# That must not be used as the source of truth for the currently
+# selected TG because the original "Selecting TG" log line eventually
+# moves outside that recent window.
+#
+# On backend startup we determine the last confirmed selection once.
+# Afterwards only newly appended SvxLink log data is inspected.
+
+_tg_tracker_lock = threading.Lock()
+_tg_tracker_ready = False
+_tg_tracker_path: Path | None = None
+_tg_tracker_inode: int | None = None
+_tg_tracker_offset = 0
+_tg_tracker_remainder = ""
+_tg_tracker_selection: dict[str, str] | None = None
+
+
+def _selection_from_line(
+    line: str,
+) -> dict[str, str] | None:
+
+    match = SELECTING_TG_RE.search(line)
+
+    if not match:
+        return None
+
+    tg = match.group("tg")
+
+    if not tg.isdigit():
+        return None
+
+    return {
+        "talkgroup": tg,
+        "timestamp": normalize_log_timestamp(
+            match.group("time")
+        ),
+    }
+
+
+def _bootstrap_tg_tracker() -> None:
+    global _tg_tracker_ready
+    global _tg_tracker_path
+    global _tg_tracker_inode
+    global _tg_tracker_offset
+    global _tg_tracker_remainder
+    global _tg_tracker_selection
+
+    files = log_files()
+
+    latest: dict[str, str] | None = None
+
+    for path in files:
+        try:
+            with path.open(
+                "r",
+                encoding="utf-8",
+                errors="replace",
+            ) as handle:
+
+                for line in handle:
+                    selection = _selection_from_line(
+                        line
+                    )
+
+                    if not selection:
+                        continue
+
+                    if (
+                        latest is None
+                        or selection["timestamp"]
+                        >= latest["timestamp"]
+                    ):
+                        latest = selection
+
+        except OSError:
+            continue
+
+    _tg_tracker_selection = latest
+    _tg_tracker_remainder = ""
+
+    if files:
+        current = files[0]
+
+        try:
+            stat = current.stat()
+
+            _tg_tracker_path = current
+            _tg_tracker_inode = stat.st_ino
+            _tg_tracker_offset = stat.st_size
+
+        except OSError:
+            _tg_tracker_path = None
+            _tg_tracker_inode = None
+            _tg_tracker_offset = 0
+
+    else:
+        _tg_tracker_path = None
+        _tg_tracker_inode = None
+        _tg_tracker_offset = 0
+
+    _tg_tracker_ready = True
+
+
+def current_talkgroup_selection(
+) -> dict[str, str] | None:
+
+    global _tg_tracker_path
+    global _tg_tracker_inode
+    global _tg_tracker_offset
+    global _tg_tracker_remainder
+    global _tg_tracker_selection
+
+    with _tg_tracker_lock:
+
+        if not _tg_tracker_ready:
+            _bootstrap_tg_tracker()
+
+        files = log_files()
+
+        if not files:
+            return _tg_tracker_selection
+
+        current = files[0]
+
+        try:
+            stat = current.stat()
+        except OSError:
+            return _tg_tracker_selection
+
+        rotated = (
+            _tg_tracker_path != current
+            or _tg_tracker_inode != stat.st_ino
+        )
+
+        truncated = (
+            not rotated
+            and stat.st_size < _tg_tracker_offset
+        )
+
+        if rotated or truncated:
+            _tg_tracker_path = current
+            _tg_tracker_inode = stat.st_ino
+            _tg_tracker_offset = 0
+            _tg_tracker_remainder = ""
+
+        if stat.st_size <= _tg_tracker_offset:
+            return _tg_tracker_selection
+
+        try:
+            with current.open("rb") as handle:
+                handle.seek(
+                    _tg_tracker_offset
+                )
+
+                chunk = handle.read()
+
+                _tg_tracker_offset = (
+                    handle.tell()
+                )
+
+        except OSError:
+            return _tg_tracker_selection
+
+        if not chunk:
+            return _tg_tracker_selection
+
+        text = (
+            _tg_tracker_remainder
+            + chunk.decode(
+                "utf-8",
+                errors="replace",
+            )
+        )
+
+        if text.endswith(("\n", "\r")):
+            complete = text
+            _tg_tracker_remainder = ""
+
+        else:
+            parts = text.splitlines(
+                keepends=True
+            )
+
+            if parts:
+                tail = parts[-1]
+
+                if not tail.endswith(
+                    ("\n", "\r")
+                ):
+                    _tg_tracker_remainder = tail
+                    complete = "".join(
+                        parts[:-1]
+                    )
+                else:
+                    _tg_tracker_remainder = ""
+                    complete = text
+
+            else:
+                _tg_tracker_remainder = text
+                complete = ""
+
+        for line in complete.splitlines():
+            selection = _selection_from_line(
+                line
+            )
+
+            if selection:
+                _tg_tracker_selection = (
+                    selection
+                )
+
+        return _tg_tracker_selection
+
+
 def local_log_rf_activity() -> dict[str, Any]:
     """Parse the small, confirmed read-only local RF log vocabulary."""
     result: dict[str, Any] = {
@@ -540,15 +758,10 @@ TG_CONTROL_PTY = Path(
 def talkgroups():
     config = parse_ini(CONFIG_PATH)
     values = [value for section in config.values() for key, value in section.items() if key.upper() == "DEFAULT_TG"]
-    confirmed = talkgroup_activity()
     external = fm_funknetz_live()
     default_tg = values[0] if values else None
 
-    last_selection = (
-        confirmed[-1]
-        if confirmed
-        else None
-    )
+    last_selection = current_talkgroup_selection()
 
     selected_tg = (
         last_selection["talkgroup"]
@@ -2028,8 +2241,6 @@ def echolink_webui_activate():
             status_code=502,
             detail=str(exc),
         ) from exc
-
-
 @app.post("/api/echolink-webui/control/deactivate")
 def echolink_webui_deactivate():
 
@@ -2051,8 +2262,6 @@ def echolink_webui_deactivate():
             status_code=502,
             detail=str(exc),
         ) from exc
-
-
 @app.post("/api/echolink-webui/control/connect/{node_id}")
 def echolink_webui_connect(
     node_id: str,
@@ -2085,8 +2294,6 @@ def echolink_webui_connect(
             status_code=502,
             detail=str(exc),
         ) from exc
-
-
 @app.post("/api/echolink-webui/control/disconnect")
 def echolink_webui_disconnect():
 
@@ -2108,8 +2315,6 @@ def echolink_webui_disconnect():
             status_code=502,
             detail=str(exc),
         ) from exc
-
-
 
 # --- ECHOLINK DIRECTORY SEARCH V2 ---
 
@@ -2147,5 +2352,3 @@ def echolink_webui_search(
             status_code=502,
             detail=str(exc),
         ) from exc
-
-

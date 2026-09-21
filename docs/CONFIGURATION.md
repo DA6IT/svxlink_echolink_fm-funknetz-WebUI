@@ -81,10 +81,6 @@ Der aktuelle EchoLink-Steuerpfad sendet für die Modulaktivierung noch `2#`.
 
 Vor dem öffentlichen Release muss die Modul-ID dynamisch aus der vorhandenen Konfiguration verwendet werden.
 
-## Apache-Authentifizierung
-
-Der interaktive Installer verwendet für die über Apache veröffentlichte WebUI `AuthType Basic` mit `Require valid-user`. Er fragt den Benutzernamen und ein mindestens achtstelliges Passwort ab; ausschließlich der bcrypt-Hash wird in `/etc/apache2/svxlink-webui.htpasswd` als `root:www-data` mit Modus `0640` gespeichert. Der Klartextwert, der Hash und die Laufzeitdatei dürfen nicht committed werden. Basic Auth schützt nicht den Transport; für nicht vertrauenswürdige Netze zusätzlich HTTPS oder VPN einsetzen.
-
 ## Secrets
 
 Nicht in Git:

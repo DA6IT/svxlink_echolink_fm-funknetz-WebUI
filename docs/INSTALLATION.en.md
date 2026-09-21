@@ -1,68 +1,153 @@
 # Installation
 
-## Status and scope
+## Status
 
-`install.sh` is an interactive pre-release installer at version `1.0.0-pre2`. A working reference installation is running in production. Clean installations on further fresh Debian/Ubuntu systems are not yet complete, so this is not a general compatibility guarantee.
+The generic public installer is still under development. This document describes the current working reference installation.
 
-Debian/Ubuntu-based systems with systemd are supported. The installer detects an existing SvxLink installation or offers to install `svxlink-server` and calibration tools. It needs network access for package, Python, and Node dependencies.
+## Target system
 
-## Quick start
+Currently intended for:
+- Debian or Ubuntu
+- existing SvxLink installation
+- systemd
+- Apache 2
+- Python 3 / venv
+- Node.js / npm
 
-Clone as an unprivileged user and run the installer once with root privileges:
+## Directories
 
-```bash
-git clone https://github.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI.git
-cd svxlink_echolink_fm-funknetz-WebUI
-sudo ./install.sh
+```text
+/opt/svxlink-webui              application
+/opt/svxlink-webui/.venv        Python venv
+/var/www/new.shart              frontend deployment
+/var/lib/svxlink-webui          persistent data
+/etc/svxlink-webui/environment  configuration
 ```
 
-Or run it from an already-open root shell:
+## Backend
 
 ```bash
-./install.sh
+cd /opt/svxlink-webui
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
 ```
 
-`install.sh` checks `EUID=0`; it deliberately does not use `sudo` internally. The script is interactive: review values, enter site-specific information, and only then confirm the displayed installation plan. Never copy passwords, AUTH_KEYs, real callsigns, or Node IDs into tickets, documentation, or public logs.
+Current systemd layout:
 
-## Requested values and defaults
+```ini
+[Unit]
+Description=SvxLink WebUI FastAPI backend
+After=network.target
 
-The installer preserves detected values where possible, otherwise it prompts for them.
+[Service]
+Type=simple
+User=svxlink-webui
+Group=svxlink-webui
+WorkingDirectory=/opt/svxlink-webui/backend
+EnvironmentFile=-/etc/svxlink-webui/environment
+ExecStart=/opt/svxlink-webui/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 12346
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
 
-| Area | Default / behaviour |
-| --- | --- |
-| WebUI source installation | `/opt/svxlink-webui` |
-| Apache document root | `/var/www/svxlink-webui` |
-| Service account | `svxlink-webui` (never `root`) |
-| WebUI port | `80` |
-| Internal API | `127.0.0.1:12346` |
-| SvxLink control PTY | `/var/lib/svxlink/control/simplex_ctrl` |
-| SvxLink state PTY | `/var/lib/svxlink/state/webui_state` |
-| FM-Funknetz | callsign, AUTH_KEY, default TG, locator, frequency, power, antenna, audio, and PTT |
-| EchoLink | callsign, password, module ID (default `2`), optional Node ID, sysop, and location |
+[Install]
+WantedBy=multi-user.target
+```
 
-The UI and API ports must differ. Used ports cause a warning and confirmation prompt. A hostname is optional; without one, IP access is intended.
+## Frontend
 
-## What the installer sets up
+```bash
+cd /opt/svxlink-webui/frontend
+npm install
+npm run build
+```
 
-After confirmation, the installer installs or checks Apache, Python/venv/pip, Node.js/npm, rsync, curl, CA certificates, and audio/USB utilities. Node.js must be at least version 18. It creates a Python venv, installs backend dependencies, runs frontend lint and build, and copies `frontend/dist/` to the selected document root.
+The reference installation copies `frontend/dist/` to `/var/www/new.shart/`.
 
-It creates the service account and the `svxlink-state-reader` and `svxlink-control` groups, installs the WebUI and state-collector services, and configures Apache as a reverse proxy including a WebSocket proxy. The backend binds only to `127.0.0.1`; Apache serves the WebUI on the chosen UI port.
+## Apache
 
-For SvxLink, the installer sets or updates `DTMF_CTRL_PTY` and `STATE_PTY`. The state collector writes normalised data to `/run/svxlink-webui/state.jsonl`. PTY permissions are set through watched systemd units; do not assume a fixed `/dev/pts/N` number because its target may change after SvxLink restarts.
+Current layout:
 
-When FM-Funknetz configuration is selected, the installer configures `ReflectorLogic` and `NetLink`. Direct FM talkgroup selection and leaving a talkgroup or returning to the default TG are performed by the WebUI through SvxLink. When EchoLink configuration is selected, it writes `ModuleEchoLink.conf` and installs the local event bridge `/usr/share/svxlink/events.d/local/EchoLinkWebUI.tcl`; the original EchoLink event file is not modified. The WebUI can control the EchoLink module, connect directly to callsigns or nodes, and disconnect calls.
+```text
+Frontend/API port: 12345
+Backend:           127.0.0.1:12346
+```
 
-## Backup, validation, and rollback
+Example:
 
-Before changing anything, the installer backs up affected configuration, systemd, and Apache files in a timestamped directory below `/var/backups/svxlink-webui/`. On failure it rolls back those files, Apache enablement, and services where possible. Installed packages, users, and groups are deliberately not removed.
+```apache
+<VirtualHost *:12345>
+    DocumentRoot /var/www/new.shart
 
-Before restart, the installer checks Python files, runs `pytest backend/app/test_api.py -q`, and tests the Apache configuration. It then restarts SvxLink, the WebUI services, and Apache, and checks both `/health` on the loopback API and the WebUI through Apache.
+    <Directory /var/www/new.shart>
+        Require all granted
+        Options -Indexes
+    </Directory>
 
-## Security and operational limits
+    ProxyPass /api/ws/ ws://127.0.0.1:12346/api/ws/
+    ProxyPassReverse /api/ws/ ws://127.0.0.1:12346/api/ws/
 
-- The WebUI can send real control commands. The installer asks for a WebUI username and an at-least-eight-character password, then protects the complete Apache site with Basic Auth. The bcrypt hash is stored only in `/etc/apache2/svxlink-webui.htpasswd` (owner `root`, group `www-data`, mode `0640`); neither plaintext passwords nor hashes belong in the repository. Use HTTPS or a VPN as additional protection on untrusted networks.
-- SvxLink and EchoLink configurations containing credentials are restricted to `root:svxlink` and mode `0640` when that group exists. The runtime environment is written as `root:<WebUI group>` with mode `0640`.
-- Depending on the network and router, EchoLink may still need inbound UDP ports `5198/5199`.
-- The script selectively updates existing configuration but is not a complete upgrade or uninstall workflow. Review backups and interactive input carefully before production changes.
+    ProxyPass /api/ http://127.0.0.1:12346/api/
+    ProxyPassReverse /api/ http://127.0.0.1:12346/api/
+</VirtualHost>
+```
 
-Further reading: [Configuration](CONFIGURATION.en.md), [Architecture](ARCHITECTURE.en.md), [Security](SECURITY.en.md).
+Before reload:
+
+```bash
+apache2ctl configtest
+```
+
+## SvxLink State PTY
+
+Example:
+
+```ini
+STATE_PTY=/var/lib/svxlink/state/webui_state
+```
+
+## SvxLink Control PTY
+
+Example:
+
+```ini
+DTMF_CTRL_PTY=/var/lib/svxlink/control/simplex_ctrl
+```
+
+The WebUI service needs write access to the resolved PTY target. Never assume a fixed `/dev/pts/X` path because it may change after restarting SvxLink.
+
+## EchoLink event bridge
+
+Local handler:
+
+```text
+/usr/share/svxlink/events.d/local/EchoLinkWebUI.tcl
+```
+
+The original `/usr/share/svxlink/events.d/EchoLink.tcl` is not modified.
+
+Raw events:
+
+```text
+/var/lib/svxlink/echolink-webui/events.tsv
+```
+
+## Public installer goals
+
+The installer should:
+1. check prerequisites
+2. detect SvxLink configuration
+3. detect State/Control PTYs
+4. detect EchoLink configuration
+5. create backups
+6. create the service account
+7. install the Python environment
+8. build the frontend
+9. configure Apache and systemd
+10. safely configure PTY permissions
+11. install the EchoLink event bridge
+12. validate configuration
+13. restart services in a controlled way
+14. roll back on failure
+
+It must not assume personal callsigns, Node IDs, hostnames, or fixed `/dev/pts/*` paths.
