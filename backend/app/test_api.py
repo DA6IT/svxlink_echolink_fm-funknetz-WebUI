@@ -141,6 +141,39 @@ def test_talkgroup_activity_reads_numeric_selections(tmp_path, monkeypatch):
         },
     ]
 
+
+def test_talkgroups_keeps_confirmed_selection_after_history_window(tmp_path, monkeypatch):
+    log = tmp_path / 'svxlink.log'
+    log.write_text(
+        '2026-09-19 12:00:00 ReflectorLogic: Selecting TG #690096\n'
+        + ('unrelated log line\n' * 101)
+    )
+    config = tmp_path / 'svxlink.conf'
+    config.write_text('[ReflectorLogic]\nDEFAULT_TG=47669\n')
+
+    monkeypatch.setattr(main, 'LOG_PATH', log)
+    monkeypatch.setattr(main, 'CONFIG_PATH', config)
+    monkeypatch.setattr(main, 'fm_funknetz_live', lambda: {
+        'available': False,
+        'active': None,
+        'client_count': None,
+        'live': [],
+        'last_heard': [],
+    })
+    monkeypatch.setattr(main, '_tg_tracker_ready', False)
+    monkeypatch.setattr(main, '_tg_tracker_selection', None)
+
+    assert main.talkgroup_activity() == []
+
+    body = main.talkgroups()
+
+    assert body['active'] == '690096'
+    assert body['selected'] == '690096'
+    assert body['default'] == '47669'
+    assert body['confirmed'] is True
+    assert body['using_default'] is False
+
+
 def test_state_pty_telemetry_is_opt_in_and_safe_when_unavailable(tmp_path, monkeypatch):
     missing = tmp_path / 'missing-state-pty'
 
