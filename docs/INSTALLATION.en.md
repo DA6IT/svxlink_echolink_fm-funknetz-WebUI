@@ -138,6 +138,12 @@ DTMF_CTRL_PTY=/var/lib/svxlink/control/simplex_ctrl
 
 The WebUI service needs write access to the resolved PTY target. Never assume a fixed `/dev/pts/X` path because it may change after restarting SvxLink.
 
+## SvxLink health check
+
+`systemctl is-active svxlink` alone is not considered a sufficient functional test. The SvxLink process can remain active even when `SimplexLogic` fails to initialize because of an audio or hardware problem.
+
+The installer therefore also verifies that both `DTMF_CTRL_PTY` and `STATE_PTY` are actually created after SvxLink starts. If either is missing, installation stops and the latest SvxLink log messages are shown.
+
 ## EchoLink event bridge
 
 Local handler:
