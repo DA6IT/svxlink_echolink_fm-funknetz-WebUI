@@ -19,3 +19,32 @@ def test_public_api_contracts():
 def test_websocket():
     with client.websocket_connect('/api/ws/live') as ws:
         assert ws.receive_json()['event'] == 'node.status'
+
+def test_system_health_contract():
+    response = client.get('/api/system/health')
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['status'] in {
+        'ok',
+        'warning',
+        'error',
+    }
+
+    assert isinstance(
+        data['checks'],
+        list,
+    )
+
+    labels = {
+        item['label']
+        for item in data['checks']
+    }
+
+    assert 'SvxLink' in labels
+    assert 'SimplexLogic' in labels
+    assert 'RX Audio' in labels
+    assert 'TX Audio' in labels
+    assert 'PTT' in labels
+    assert 'SHARI UART' in labels

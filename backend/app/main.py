@@ -26,6 +26,7 @@ from .fm_nodes import FMNodeDirectory
 from .fm_stats import FMStatsDirectory
 from .fm_tg_names import FMTalkgroupNames
 from .shari_radio import read_shari_hardware
+from .system_health import system_health
 
 VERSION = "0.7.0"
 DEMO = os.getenv("SVXLINK_WEBUI_DEMO", "false").lower() in {"1", "true", "yes"}
@@ -725,6 +726,11 @@ def svxlink_status():
 @app.get("/api/system")
 def system():
     return {"hostname": platform.node(), "os": platform.platform(), "python": platform.python_version(), "uptime": int(time.monotonic()), "version": VERSION}
+
+
+@app.get("/api/system/health")
+def system_health_status():
+    return system_health()
 
 
 @app.get("/api/shari/hardware")
