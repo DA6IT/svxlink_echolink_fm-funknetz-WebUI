@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 PROJECT_NAME="SvxLink WebUI"
-INSTALLER_VERSION="1.0.0-pre2"
+INSTALLER_VERSION="1.0.0-pre3"
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_ROOT="/var/backups/svxlink-webui/${TIMESTAMP}"
@@ -416,20 +416,79 @@ else
   CURRENT_ECHO_NODE_ID=""
 fi
 
-# ALSA Auto-Detect
+# Hardware Auto-Detect
+# Standardfall: Debian/Ubuntu/Raspberry Pi mit direkt angeschlossenem SHARI.
+# Virtualisierung/LXC wird nicht vorausgesetzt.
+
 AUTO_AUDIO_DEV=""
-if command -v aplay >/dev/null 2>&1; then
-  FIRST_CARD="$(aplay -l 2>/dev/null | sed -nE 's/^card ([0-9]+):.*/\1/p' | head -1)"
-  [[ -n "$FIRST_CARD" ]] && AUTO_AUDIO_DEV="alsa:plughw:${FIRST_CARD},0"
+AUTO_AUDIO_CARD=""
+AUTO_AUDIO_CARD_ID=""
+
+shopt -s nullglob
+
+# Bevorzugt eine USB-Soundkarte. Der ALSA Card-ID-Name ist stabiler
+# als eine numerische Kartennummer, die sich nach Reboots ändern kann.
+for CARD_PATH in /sys/class/sound/card[0-9]*; do
+  CARD_INDEX="${CARD_PATH##*card}"
+  CARD_DEVICE="$(readlink -f "$CARD_PATH/device" 2>/dev/null || true)"
+  CARD_ID_FILE="/proc/asound/card${CARD_INDEX}/id"
+  CARD_ID=""
+  [[ -r "$CARD_ID_FILE" ]] && CARD_ID="$(tr -d "[:space:]" < "$CARD_ID_FILE")"
+
+  if [[ "$CARD_DEVICE" == *"/usb"* && -n "$CARD_ID" ]]; then
+    AUTO_AUDIO_CARD="$CARD_INDEX"
+    AUTO_AUDIO_CARD_ID="$CARD_ID"
+    AUTO_AUDIO_DEV="alsa:plughw:CARD=${CARD_ID},DEV=0"
+    break
+  fi
+done
+
+# Falls keine USB-Karte erkannt wurde, erste verfügbare ALSA-Karte nehmen.
+if [[ -z "$AUTO_AUDIO_DEV" ]]; then
+  for CARD_PATH in /sys/class/sound/card[0-9]*; do
+    CARD_INDEX="${CARD_PATH##*card}"
+    CARD_ID_FILE="/proc/asound/card${CARD_INDEX}/id"
+    CARD_ID=""
+    [[ -r "$CARD_ID_FILE" ]] && CARD_ID="$(tr -d "[:space:]" < "$CARD_ID_FILE")"
+
+    if [[ -n "$CARD_ID" ]]; then
+      AUTO_AUDIO_CARD="$CARD_INDEX"
+      AUTO_AUDIO_CARD_ID="$CARD_ID"
+      AUTO_AUDIO_DEV="alsa:plughw:CARD=${CARD_ID},DEV=0"
+      break
+    fi
+  done
 fi
+
 AUTO_AUDIO_DEV="${CURRENT_AUDIO_DEV:-${AUTO_AUDIO_DEV:-alsa:plughw:0,0}}"
 
-# HID Auto-Detect
+# HID/PTT automatisch erkennen, wenn genau ein hidraw-Gerät vorhanden ist.
 AUTO_HID=""
-mapfile -t HID_DEVICES < <(find /dev -maxdepth 1 -type c -name 'hidraw*' 2>/dev/null | sort -V)
-if (( ${#HID_DEVICES[@]} == 1 )); then AUTO_HID="${HID_DEVICES[0]}"; fi
+mapfile -t HID_DEVICES < <(find /dev -maxdepth 1 -type c -name "hidraw*" 2>/dev/null | sort -V)
+
+if (( ${#HID_DEVICES[@]} == 1 )); then
+  AUTO_HID="${HID_DEVICES[0]}"
+fi
+
 AUTO_HID="${CURRENT_HID_DEVICE:-${AUTO_HID:-/dev/hidraw0}}"
 
+# Serielle SHARI/SA818-Schnittstelle ist optional.
+# /dev/serial/by-id ist gegenüber ttyUSB-Nummern zu bevorzugen.
+AUTO_SERIAL_PORT=""
+SERIAL_BY_ID=(/dev/serial/by-id/*)
+
+if (( ${#SERIAL_BY_ID[@]} == 1 )); then
+  AUTO_SERIAL_PORT="${SERIAL_BY_ID[0]}"
+else
+  SERIAL_DEVICES=(/dev/ttyUSB* /dev/ttyACM*)
+  if (( ${#SERIAL_DEVICES[@]} == 1 )); then
+    AUTO_SERIAL_PORT="${SERIAL_DEVICES[0]}"
+  fi
+fi
+
+SHARI_SERIAL_PORT_DEFAULT="${AUTO_SERIAL_PORT:-/dev/ttyUSB0}"
+
+shopt -u nullglob
 hr
 say "${C_BOLD}${PROJECT_NAME} Installer ${INSTALLER_VERSION}${C_RESET}"
 hr
@@ -440,6 +499,19 @@ say "SvxLink:      $([[ "$SVXLINK_FOUND" == true ]] && echo 'gefunden' || echo '
 say "Config:       $SVXLINK_CONFIG"
 say "Control PTY:  ${CURRENT_CONTROL_PTY:-nicht erkannt}"
 say "State PTY:    ${CURRENT_STATE_PTY:-nicht erkannt}"
+say "Audio:        $AUTO_AUDIO_DEV"
+say "HID/PTT:      $AUTO_HID"
+say "SHARI UART:   ${AUTO_SERIAL_PORT:-nicht automatisch erkannt (optional)}"
+
+if [[ -z "$CURRENT_AUDIO_DEV" && -z "$AUTO_AUDIO_CARD" ]]; then
+  warn "Keine ALSA-Soundkarte automatisch erkannt. AUDIO_DEV muss vor dem Start geprüft werden."
+fi
+
+if [[ -n "$CURRENT_AUDIO_DEV" && "$CURRENT_AUDIO_DEV" =~ ^alsa:(plug)?hw:[0-9]+,[0-9]+$ ]]; then
+  warn "Vorhandene numerische ALSA-Konfiguration erkannt: $CURRENT_AUDIO_DEV"
+  warn "Sie wird beim Upgrade nicht automatisch geändert. Eine stabile CARD-ID ist bei mehreren Soundkarten robuster."
+fi
+
 echo
 
 # -----------------------------------------------------------------------------
@@ -666,6 +738,16 @@ if ! id "$WEBUI_USER" >/dev/null 2>&1; then
 fi
 WEBUI_GROUP="$(id -gn "$WEBUI_USER")"
 usermod -a -G svxlink-state-reader,svxlink-control "$WEBUI_USER"
+
+# Direkte Hardwareinstallation, z. B. Raspberry Pi.
+# SvxLink benötigt Zugriff auf ALSA/HID, die WebUI optional auf den UART.
+if id svxlink >/dev/null 2>&1 && getent group audio >/dev/null 2>&1; then
+  usermod -a -G audio svxlink
+fi
+
+if getent group dialout >/dev/null 2>&1; then
+  usermod -a -G dialout "$WEBUI_USER"
+fi
 
 # -----------------------------------------------------------------------------
 # Source installieren
@@ -1091,6 +1173,9 @@ SVXLINK_STATE_PTY_RAW_PATH=$RAW_STATE_PTY
 SVXLINK_ACTIVITY_DB=/var/lib/svxlink-webui/activity.sqlite3
 TG_CONTROL_ENABLED=true
 TG_CONTROL_PTY=$CONTROL_PTY
+SHARI_SERIAL_PORT=$SHARI_SERIAL_PORT_DEFAULT
+SHARI_SERIAL_BAUD=9600
+SHARI_SERIAL_TIMEOUT=0.8
 FM_FUNKNETZ_MQTT_ENABLED=true
 FM_FUNKNETZ_MQTT_HOST=mqtt.fm-funknetz.de
 FM_FUNKNETZ_MQTT_PORT=1883
@@ -1214,12 +1299,36 @@ info "Projekt prüfen"
 # -----------------------------------------------------------------------------
 info "Dienste neu laden/starten"
 systemctl daemon-reload
-systemctl enable svxlink-webui-state-permissions.path svxlink-webui-control-permissions.path >/dev/null
+systemctl enable --now svxlink-webui-state-permissions.path svxlink-webui-control-permissions.path >/dev/null
 systemctl enable svxlink-webui-state-collector.service svxlink-webui.service >/dev/null
 
 systemctl restart svxlink
-sleep 1
+
+# Ein laufender svxlink-Prozess allein reicht nicht.
+# SimplexLogic muss erfolgreich initialisiert sein und beide PTYs erzeugen.
+for _ in {1..20}; do
+  if systemctl is-active --quiet svxlink && [[ -e "$CONTROL_PTY" && -e "$RAW_STATE_PTY" ]]; then
+    break
+  fi
+  sleep 0.25
+done
+
 systemctl is-active --quiet svxlink || die "SvxLink startet mit der neuen Konfiguration nicht."
+
+if [[ ! -e "$CONTROL_PTY" || ! -e "$RAW_STATE_PTY" ]]; then
+  warn "SvxLink läuft als Prozess, aber SimplexLogic ist nicht vollständig betriebsbereit."
+
+  if [[ -f /var/log/svxlink ]]; then
+    echo
+    warn "Letzte SvxLink-Logzeilen:"
+    tail -80 /var/log/svxlink >&2 || true
+  fi
+
+  [[ -e "$CONTROL_PTY" ]] || warn "Control PTY fehlt: $CONTROL_PTY"
+  [[ -e "$RAW_STATE_PTY" ]] || warn "State PTY fehlt: $RAW_STATE_PTY"
+
+  die "SvxLink-Hardware/Audio initialisiert nicht vollständig. Prüfe ALSA, RX/TX und PTT."
+fi
 
 # Permission Binder direkt ausführen; Path-Units kümmern sich danach um Neustarts.
 systemctl start svxlink-webui-state-permissions.service

@@ -24,6 +24,28 @@ Currently intended for:
 /etc/svxlink-webui/environment  configuration
 ```
 
+## Hardware detection
+
+The installer does not assume Proxmox, LXC or any specific virtualization platform. Directly attached hardware is the normal installation case.
+
+The installer detects or validates:
+
+- ALSA sound devices for RX and TX
+- preferably a directly attached USB sound card
+- HID devices used for PTT
+- an optional serial interface for SA818/SA818S
+- SvxLink control and state PTYs after startup
+
+Where possible, ALSA uses a stable card ID such as `plughw:CARD=Device,DEV=0` instead of relying on a numeric card index such as `plughw:0,0`.
+
+During upgrades an existing `AUDIO_DEV` setting is preserved. Numeric configurations such as `plughw:0,0` are only reported with a warning and are not changed automatically.
+
+The SA818/SA818S serial interface is optional. If it is unavailable, the rest of the WebUI remains operational and only the SHARI hardware view reports that serial access is unavailable.
+
+### Virtualization and containers
+
+When running inside a VM or container, the required USB, audio, HID and optional serial devices must be exposed by the virtualization platform. This is outside the normal installer path.
+
 ## Backend
 
 ```bash

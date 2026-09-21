@@ -2,13 +2,15 @@
 
 ## Status
 
-Der automatische öffentliche Installer befindet sich noch in Entwicklung. Dieses Dokument beschreibt die aktuelle funktionierende Referenzinstallation.
+Der öffentliche Installer steht als Pre-Release zur Verfügung. Primärer Zielbetrieb ist ein direkt installiertes Debian-/Ubuntu-System, insbesondere Raspberry Pi und vergleichbare Kleinrechner.
 
 ## Zielsystem
 
 Aktuell vorgesehen:
+- Raspberry Pi oder vergleichbarer Kleinrechner
 - Debian oder Ubuntu
-- bestehende SvxLink-Installation
+- SHARI bzw. kompatible USB-Audio-/PTT-Hardware direkt am System
+- bestehende oder durch den Installer eingerichtete SvxLink-Installation
 - systemd
 - Apache 2
 - Python 3 / venv
@@ -23,6 +25,28 @@ Aktuell vorgesehen:
 /var/lib/svxlink-webui          persistente Daten
 /etc/svxlink-webui/environment  Konfiguration
 ```
+
+## Hardware-Erkennung
+
+Der Installer geht nicht von Proxmox, LXC oder einer bestimmten Virtualisierung aus. Der Standardfall ist direkt angeschlossene Hardware.
+
+Automatisch geprüft bzw. erkannt werden:
+
+- ALSA-Soundkarten für RX und TX
+- bevorzugt eine direkt angeschlossene USB-Soundkarte
+- HID-Geräte für PTT
+- optional eine serielle Schnittstelle für SA818/SA818S
+- SvxLink Control- und State-PTY nach dem Start
+
+Für ALSA wird nach Möglichkeit eine stabile Karten-ID wie `plughw:CARD=Device,DEV=0` verwendet, statt eine feste Kartennummer wie `plughw:0,0` vorauszusetzen.
+
+Bei einem Upgrade wird eine bereits vorhandene `AUDIO_DEV`-Konfiguration nicht automatisch verändert. Numerische Konfigurationen wie `plughw:0,0` werden lediglich mit einem Hinweis versehen.
+
+Die serielle SA818/SA818S-Schnittstelle ist optional. Fehlt sie, bleibt die übrige WebUI vollständig nutzbar; lediglich die SHARI-Hardwareanzeige meldet die serielle Schnittstelle als nicht verfügbar.
+
+### Virtualisierung und Container
+
+Bei Betrieb in einer VM oder einem Container müssen die benötigten USB-, Audio-, HID- und gegebenenfalls seriellen Geräte durch die jeweilige Virtualisierungsplattform bereitgestellt werden. Dies ist kein Bestandteil des normalen Installationspfads.
 
 ## Backend
 
@@ -115,6 +139,12 @@ DTMF_CTRL_PTY=/var/lib/svxlink/control/simplex_ctrl
 ```
 
 Der WebUI-Service benötigt Schreibzugriff auf das tatsächliche PTY-Ziel. Keine feste `/dev/pts/X`-Nummer verwenden; sie kann sich nach einem SvxLink-Neustart ändern.
+
+## SvxLink Healthcheck
+
+`systemctl is-active svxlink` allein gilt nicht als ausreichender Funktionstest. SvxLink kann als Prozess laufen, obwohl `SimplexLogic` wegen eines Audio- oder Hardwarefehlers nicht initialisiert wurde.
+
+Der Installer prüft deshalb zusätzlich, ob nach dem SvxLink-Start sowohl `DTMF_CTRL_PTY` als auch `STATE_PTY` tatsächlich erzeugt wurden. Fehlen diese, wird die Installation mit den letzten SvxLink-Logmeldungen abgebrochen.
 
 ## EchoLink Event Bridge
 
