@@ -128,6 +128,7 @@ type View =
   | 'fm'
   | 'echolink'
   | 'shari'
+  | 'svxlink-config'
   | 'system';
 
 type TgView =
@@ -3135,14 +3136,6 @@ function App() {
       id: 'echolink',
       label: 'EchoLink',
     },
-    {
-      id: 'shari',
-      label: 'SHARI',
-    },
-    {
-      id: 'system',
-      label: 'System',
-    },
   ];
 
   const goTo =
@@ -3175,7 +3168,7 @@ function App() {
             </span>
           </button>
 
-          <nav className="main-nav">
+          <nav className='main-nav'>
             {navItems.map(
               (item) => (
                 <button
@@ -3193,6 +3186,69 @@ function App() {
                 </button>
               )
             )}
+
+            <details className='nav-dropdown'>
+              <summary
+                className={
+                  view === 'shari' ||
+                  view === 'svxlink-config'
+                    ? 'is-current'
+                    : ''
+                }
+              >
+                <span>Konfiguration</span>
+                <span className='nav-dropdown-caret'>▾</span>
+              </summary>
+
+              <div className='nav-dropdown-menu'>
+                <button
+                  className={
+                    view === 'shari'
+                      ? 'is-current'
+                      : ''
+                  }
+                  onClick={(event) => {
+                    goTo('shari');
+                    event.currentTarget
+                      .closest('details')
+                      ?.removeAttribute('open');
+                  }}
+                >
+                  <strong>SHARI</strong>
+                  <span>SA818 / Funkmodul</span>
+                </button>
+
+                <button
+                  className={
+                    view === 'svxlink-config'
+                      ? 'is-current'
+                      : ''
+                  }
+                  onClick={(event) => {
+                    goTo('svxlink-config');
+                    event.currentTarget
+                      .closest('details')
+                      ?.removeAttribute('open');
+                  }}
+                >
+                  <strong>SvxLink</strong>
+                  <span>Software &amp; Audio</span>
+                </button>
+              </div>
+            </details>
+
+            <button
+              className={
+                view === 'system'
+                  ? 'is-current'
+                  : ''
+              }
+              onClick={() =>
+                goTo('system')
+              }
+            >
+              System
+            </button>
           </nav>
 
           <div className="header-status">
@@ -5735,6 +5791,104 @@ function App() {
 
             </section>
 
+          </main>
+        </>
+      )}
+
+      {view === 'svxlink-config' && (
+        <>
+          <section className='page-hero'>
+            <div className='hero-glow hero-glow-green' />
+            <div className='hero-glow hero-glow-cyan' />
+
+            <div className='content'>
+              <span className='eyebrow'>
+                KONFIGURATION · SVXLINK
+              </span>
+
+              <h1>SvxLink</h1>
+
+              <p>
+                Zentrale Einstellungen für SvxLink,
+                Audio, PTT und die lokale Funklogik.
+              </p>
+            </div>
+          </section>
+
+          <main className='content main-content'>
+            <div className='shari-readonly-banner'>
+              <strong>Read-only</strong>
+              <span>
+                Dieser Bereich zeigt zunächst nur ausgewählte,
+                unkritische SvxLink-Einstellungen. Schreibzugriffe
+                folgen später kontrolliert mit Validierung und Backup.
+              </span>
+            </div>
+
+            <div className='system-grid'>
+              <article className='system-card'>
+                <span>Rufzeichen</span>
+                <strong>{callsign}</strong>
+                <small>SimplexLogic</small>
+              </article>
+
+              <article className='system-card'>
+                <span>RX Audio</span>
+                <strong>
+                  {status.config?.Rx1?.AUDIO_DEV || '—'}
+                </strong>
+                <small>Empfänger</small>
+              </article>
+
+              <article className='system-card'>
+                <span>TX Audio</span>
+                <strong>
+                  {status.config?.Tx1?.AUDIO_DEV || '—'}
+                </strong>
+                <small>Sender</small>
+              </article>
+
+              <article className='system-card'>
+                <span>PTT</span>
+                <strong>
+                  {status.config?.Tx1?.PTT_TYPE || '—'}
+                </strong>
+                <small>
+                  {status.config?.Tx1?.HID_DEVICE ||
+                    'Kein HID-Gerät angegeben'}
+                </small>
+              </article>
+            </div>
+
+            <section className='section'>
+              <div className='section-heading'>
+                <div>
+                  <span className='eyebrow'>
+                    NÄCHSTER SCHRITT
+                  </span>
+                  <h2>SvxLink konfigurieren</h2>
+                </div>
+              </div>
+
+              <div className='shari-config-preview'>
+                <div>
+                  <strong>
+                    Konfiguration bearbeiten
+                  </strong>
+                  <span>
+                    Audio, PTT, Logics und weitere SvxLink-Parameter
+                    werden hier schrittweise editierbar.
+                  </span>
+                </div>
+
+                <button
+                  className='button button-primary'
+                  disabled
+                >
+                  Änderungen speichern
+                </button>
+              </div>
+            </section>
           </main>
         </>
       )}
