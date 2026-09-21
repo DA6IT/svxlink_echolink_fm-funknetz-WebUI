@@ -5,7 +5,7 @@ Eine moderne, responsive Weboberfläche für **SvxLink**, **SHARI**, **FM-Funkne
 Die Anwendung kombiniert ein FastAPI-Backend mit einem React/Vite-Frontend und stellt Live-Daten, Statusinformationen und ausgewählte Steuerfunktionen im Browser bereit.
 
 > **Status:** Pre-Release / aktive Entwicklung.
-> Die WebUI läuft bereits produktiv auf einem realen SvxLink-/SHARI-System. Der generische öffentliche Installer wird noch vorbereitet.
+> Die WebUI läuft bereits produktiv auf einem realen SvxLink-/SHARI-System. Ein öffentlicher Pre-Release-Installer ist bereits vorhanden und wird weiter getestet.
 
 [English version](README.en.md)
 
