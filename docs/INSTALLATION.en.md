@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-`install.sh` is an interactive pre-release installer at version `1.0.0-pre1`. A working reference installation is running in production. Clean installations on further fresh Debian/Ubuntu systems are not yet complete, so this is not a general compatibility guarantee.
+`install.sh` is an interactive pre-release installer at version `1.0.0-pre2`. A working reference installation is running in production. Clean installations on further fresh Debian/Ubuntu systems are not yet complete, so this is not a general compatibility guarantee.
 
 Debian/Ubuntu-based systems with systemd are supported. The installer detects an existing SvxLink installation or offers to install `svxlink-server` and calibration tools. It needs network access for package, Python, and Node dependencies.
 
@@ -33,7 +33,7 @@ The installer preserves detected values where possible, otherwise it prompts for
 | WebUI source installation | `/opt/svxlink-webui` |
 | Apache document root | `/var/www/svxlink-webui` |
 | Service account | `svxlink-webui` (never `root`) |
-| WebUI port | `12345` |
+| WebUI port | `80` |
 | Internal API | `127.0.0.1:12346` |
 | SvxLink control PTY | `/var/lib/svxlink/control/simplex_ctrl` |
 | SvxLink state PTY | `/var/lib/svxlink/state/webui_state` |
@@ -60,7 +60,7 @@ Before restart, the installer checks Python files, runs `pytest backend/app/test
 
 ## Security and operational limits
 
-- The WebUI can send real control commands and has no built-in login. Do not expose it unprotected to the internet; use a VPN, firewall/IP allowlist, or reverse-proxy authentication.
+- The WebUI can send real control commands. The installer asks for a WebUI username and an at-least-eight-character password, then protects the complete Apache site with Basic Auth. The bcrypt hash is stored only in `/etc/apache2/svxlink-webui.htpasswd` (owner `root`, group `www-data`, mode `0640`); neither plaintext passwords nor hashes belong in the repository. Use HTTPS or a VPN as additional protection on untrusted networks.
 - SvxLink and EchoLink configurations containing credentials are restricted to `root:svxlink` and mode `0640` when that group exists. The runtime environment is written as `root:<WebUI group>` with mode `0640`.
 - Depending on the network and router, EchoLink may still need inbound UDP ports `5198/5199`.
 - The script selectively updates existing configuration but is not a complete upgrade or uninstall workflow. Review backups and interactive input carefully before production changes.

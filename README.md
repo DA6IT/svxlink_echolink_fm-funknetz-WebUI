@@ -2,7 +2,7 @@
 
 Eine responsive Weboberfläche für **SvxLink**, **SHARI**, **FM-Funknetz** und **EchoLink**. Sie kombiniert ein FastAPI-Backend mit einem React/Vite-Frontend und zeigt Live-Daten, Statusinformationen und ausgewählte Steuerfunktionen.
 
-> **Status:** Pre-Release / aktive Entwicklung. Eine funktionierende Referenzinstallation läuft produktiv. Der interaktive Installer ist vorhanden und trägt die Version `1.0.0-pre1`; weitere saubere Installationen auf frischen Debian-/Ubuntu-Systemen stehen noch aus.
+> **Status:** Pre-Release / aktive Entwicklung. Eine funktionierende Referenzinstallation läuft produktiv. Der interaktive Installer ist vorhanden und trägt die Version `1.0.0-pre2`; weitere saubere Installationen auf frischen Debian-/Ubuntu-Systemen stehen noch aus.
 
 [English version](README.en.md)
 
@@ -24,11 +24,11 @@ Browser -> Apache :12345 -> Frontend
                          -> /api/ und /api/ws/ -> FastAPI/Uvicorn 127.0.0.1:12346
 ```
 
-Das Backend bindet standardmäßig nur an Loopback. Die Ports sind im Installer änderbar; `12345` (WebUI) und `12346` (interne API) sind die Vorgaben.
+Das Backend bindet standardmäßig nur an Loopback. Die Ports sind im Installer änderbar; `80` (WebUI) und `12346` (interne API) sind die Vorgaben.
 
 ## Installation
 
-Der interaktive Installer liegt als `install.sh` im Repository. Er ist ein Pre-Release (`1.0.0-pre1`), keine Zusicherung für beliebige Systeme. Eine produktive Referenzinstallation existiert; Validierung auf weiteren frischen Debian-/Ubuntu-Systemen steht noch aus.
+Der interaktive Installer liegt als `install.sh` im Repository. Er ist ein Pre-Release (`1.0.0-pre2`), keine Zusicherung für beliebige Systeme. Eine produktive Referenzinstallation existiert; Validierung auf weiteren frischen Debian-/Ubuntu-Systemen steht noch aus.
 
 Schnellstart (als normaler Benutzer geklont):
 
@@ -48,7 +48,7 @@ Der Installer verlangt `EUID=0` und verwendet innerhalb des Skripts absichtlich 
 
 ## Sicherheit
 
-Die WebUI ist nicht read-only und kann reale SvxLink-Steuerbefehle auslösen. Das Backend lauscht standardmäßig nur lokal, Apache kann die Oberfläche jedoch im Netz veröffentlichen. Für produktive Systeme geeigneten Zugriffsschutz einsetzen, etwa VPN, Firewall/IP-Allowlist oder Reverse-Proxy-Authentifizierung. Zugangsdaten und Schlüssel niemals in Dokumentation oder öffentliche Beispiele übernehmen.
+Die WebUI ist nicht read-only und kann reale SvxLink-Steuerbefehle auslösen. Das Backend lauscht standardmäßig nur lokal; der Installer schützt die gesamte über Apache veröffentlichte WebUI per Basic Auth mit einer root-lesbaren `htpasswd`-Datei. Für nicht vertrauenswürdige Netze zusätzlich HTTPS oder VPN einsetzen. Zugangsdaten und Schlüssel niemals in Dokumentation oder öffentliche Beispiele übernehmen.
 
 Details: [Sicherheit](docs/SECURITY.md) · [Datenschutz](docs/PRIVACY.md)
 

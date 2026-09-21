@@ -45,13 +45,9 @@ Talkgroups and EchoLink Node IDs are validated before being sent.
 
 ## Authentication
 
-Built-in authentication is not yet included in the pre-release.
+The installer protects the complete Apache site with Basic Auth. It asks for a WebUI username and an at-least-eight-character password, creates a bcrypt hash with `htpasswd -B`, and writes only that hash to `/etc/apache2/svxlink-webui.htpasswd`. The file is owned by `root:www-data` and has mode `0640`; it is backed up and rolled back if the installer fails. It must never enter the repository, tickets, or logs.
 
-Do not expose the WebUI publicly without protection. Suitable controls include:
-- VPN
-- firewall/IP allowlist
-- reverse-proxy authentication
-- SSO
+Basic Auth does not protect network transport. Use HTTPS or a VPN on untrusted networks; a firewall/IP allowlist and SSO remain possible additional controls.
 
 ## Secrets
 

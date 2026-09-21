@@ -1202,6 +1202,9 @@ function App() {
       }
     });
 
+  const [preferencesReady, setPreferencesReady] =
+    useState(false);
+
   const [buddyHistory, setBuddyHistory] =
     useState<Record<string, ActivityRecord>>({});
 
@@ -1682,33 +1685,190 @@ function App() {
     }, [talkgroups]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        'svxlink.favoriteTgs',
-        JSON.stringify(
-          favoriteTgs
-        )
-      );
-    } catch {
-      // Browser ohne LocalStorage:
-      // Favoriten funktionieren dann
-      // nur für die aktuelle Sitzung.
-    }
-  }, [favoriteTgs]);
+    let cancelled = false;
+
+    const loadPreferences =
+      async () => {
+        try {
+          const response =
+            await fetch(
+              `${api}/preferences`,
+              {
+                cache: 'no-store',
+              }
+            );
+
+          if (!response.ok) {
+            throw new Error();
+          }
+
+          const data =
+            await response.json();
+
+          const serverFavoriteTgs =
+            Array.isArray(
+              data.favorite_tgs
+            )
+              ? data.favorite_tgs
+                  .map(String)
+                  .filter(
+                    (item: string) =>
+                      /^\d{1,9}$/.test(
+                        item
+                      )
+                  )
+              : [];
+
+          const serverBuddyCalls =
+            Array.isArray(
+              data.buddy_calls
+            )
+              ? data.buddy_calls
+                  .map(
+                    (item: unknown) =>
+                      String(item)
+                        .trim()
+                        .toUpperCase()
+                  )
+                  .filter(Boolean)
+              : [];
+
+          const mergedFavoriteTgs =
+            Array.from(
+              new Set([
+                ...serverFavoriteTgs,
+                ...favoriteTgs,
+              ])
+            );
+
+          const mergedBuddyCalls =
+            Array.from(
+              new Set([
+                ...serverBuddyCalls,
+                ...buddyCalls,
+              ])
+            );
+
+          if (cancelled) {
+            return;
+          }
+
+          setFavoriteTgs(
+            mergedFavoriteTgs
+          );
+
+          setBuddyCalls(
+            mergedBuddyCalls
+          );
+
+          const saveResponse =
+            await fetch(
+              `${api}/preferences`,
+              {
+                method: 'PUT',
+
+                headers: {
+                  'Content-Type':
+                    'application/json',
+                },
+
+                body: JSON.stringify({
+                  favorite_tgs:
+                    mergedFavoriteTgs,
+
+                  buddy_calls:
+                    mergedBuddyCalls,
+                }),
+              }
+            );
+
+          if (!saveResponse.ok) {
+            throw new Error();
+          }
+
+          if (!cancelled) {
+            setPreferencesReady(true);
+
+            try {
+              window.localStorage
+                .removeItem(
+                  'svxlink.favoriteTgs'
+                );
+
+              window.localStorage
+                .removeItem(
+                  'svxlink.buddyCalls'
+                );
+            } catch {
+              // Server ist jetzt Source of Truth.
+            }
+          }
+        } catch {
+          // Bei Backendfehler bleiben alte
+          // localStorage-Daten erhalten.
+        }
+      };
+
+    loadPreferences();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        'svxlink.buddyCalls',
-        JSON.stringify(
-          buddyCalls
-        )
-      );
-    } catch {
-      // optional
+    if (!preferencesReady) {
+      return;
     }
-  }, [buddyCalls]);
+
+    const timer =
+      window.setTimeout(
+        async () => {
+          try {
+            const response =
+              await fetch(
+                `${api}/preferences`,
+                {
+                  method: 'PUT',
+
+                  headers: {
+                    'Content-Type':
+                      'application/json',
+                  },
+
+                  body: JSON.stringify({
+                    favorite_tgs:
+                      favoriteTgs,
+
+                    buddy_calls:
+                      buddyCalls,
+                  }),
+                }
+              );
+
+            if (!response.ok) {
+              console.warn(
+                'Favoriten konnten nicht serverseitig gespeichert werden.'
+              );
+            }
+          } catch {
+            console.warn(
+              'Favoriten konnten nicht serverseitig gespeichert werden.'
+            );
+          }
+        },
+        150
+      );
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    favoriteTgs,
+    buddyCalls,
+    preferencesReady,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2787,7 +2947,7 @@ function App() {
       node,
       'Callsign',
       'CALLSIGN'
-    ) || 'SvxLink Node'
+    ) || 'DA6IT-L'
   );
 
   const location = String(
@@ -4680,7 +4840,7 @@ function App() {
                       event.target.value
                     )
                   }
-                  placeholder="Rufzeichen oder Node-ID, z. B. Node"
+                  placeholder="Rufzeichen oder Node-ID, z. B. DA6IT-L"
                   autoComplete="off"
                 />
 

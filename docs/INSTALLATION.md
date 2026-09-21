@@ -2,7 +2,7 @@
 
 ## Status und Geltungsbereich
 
-`install.sh` ist ein interaktiver Pre-Release-Installer in Version `1.0.0-pre1`. Eine funktionierende Referenzinstallation läuft produktiv. Saubere Installationen auf weiteren frischen Debian-/Ubuntu-Systemen sind noch nicht abgeschlossen; daher keine allgemeine Kompatibilitätszusage ableiten.
+`install.sh` ist ein interaktiver Pre-Release-Installer in Version `1.0.0-pre2`. Eine funktionierende Referenzinstallation läuft produktiv. Saubere Installationen auf weiteren frischen Debian-/Ubuntu-Systemen sind noch nicht abgeschlossen; daher keine allgemeine Kompatibilitätszusage ableiten.
 
 Unterstützt werden Debian-/Ubuntu-basierte Systeme mit systemd. Der Installer erkennt vorhandenes SvxLink oder bietet an, `svxlink-server` und Kalibrierwerkzeuge zu installieren. Er benötigt Netzwerkzugriff für Paket-, Python- und Node-Abhängigkeiten.
 
@@ -33,7 +33,7 @@ Der Installer übernimmt vorhandene Werte, wenn sie erkannt werden, oder fragt s
 | WebUI-Quellinstallation | `/opt/svxlink-webui` |
 | Apache DocumentRoot | `/var/www/svxlink-webui` |
 | Service-Benutzer | `svxlink-webui` (nie `root`) |
-| WebUI-Port | `12345` |
+| WebUI-Port | `80` |
 | Interne API | `127.0.0.1:12346` |
 | SvxLink Control PTY | `/var/lib/svxlink/control/simplex_ctrl` |
 | SvxLink State PTY | `/var/lib/svxlink/state/webui_state` |
@@ -60,7 +60,7 @@ Vor dem Neustart prüft der Installer Python-Dateien, führt `pytest backend/app
 
 ## Sicherheits- und Betriebsgrenzen
 
-- Die WebUI kann reale Steuerbefehle senden und besitzt keine eigene Anmeldung. Nicht ungeschützt im Internet veröffentlichen; VPN, Firewall/IP-Allowlist oder Reverse-Proxy-Authentifizierung verwenden.
+- Die WebUI kann reale Steuerbefehle senden. Der Installer fragt einen WebUI-Benutzer und ein mindestens achtstelliges Passwort ab und schützt die gesamte Apache-Site mit Basic Auth. Der bcrypt-Hash liegt ausschließlich in `/etc/apache2/svxlink-webui.htpasswd` (Owner `root`, Gruppe `www-data`, Modus `0640`); weder Klartextpasswort noch Hash gehören ins Repository. Für nicht vertrauenswürdige Netze zusätzlich HTTPS oder VPN einsetzen.
 - SvxLink- und EchoLink-Konfigurationen mit Zugangsdaten werden auf `root:svxlink` und Modus `0640` eingeschränkt, sofern die Gruppe existiert. Die Laufzeitumgebung wird als `root:<WebUI-Gruppe>` mit `0640` geschrieben.
 - EchoLink kann abhängig von Netzwerk und Router weiterhin eingehende UDP-Ports `5198/5199` benötigen.
 - Das Skript aktualisiert vorhandene Konfigurationen gezielt, ist aber kein vollständiger Upgrade- oder Uninstall-Workflow. Vor produktiven Änderungen Backups prüfen und die interaktiven Angaben sorgfältig kontrollieren.

@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 PROJECT_NAME="SvxLink WebUI"
-INSTALLER_VERSION="1.0.0-pre1"
+INSTALLER_VERSION="1.0.0-pre2"
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_ROOT="/var/backups/svxlink-webui/${TIMESTAMP}"
@@ -112,6 +112,36 @@ ask_callsign() {
       return 0
     fi
     echo "Ungültiges Rufzeichen/Node-Rufzeichen." >&2
+  done
+}
+
+ask_web_username() {
+  local prompt="$1" default="${2:-}" value
+  while true; do
+    value="$(ask "$prompt" "$default")"
+    if [[ "$value" =~ ^[A-Za-z0-9._-]{1,64}$ ]]; then
+      printf '%s' "$value"
+      return 0
+    fi
+    echo "Ungültiger WebUI-Benutzername. Erlaubt sind A-Z, a-z, 0-9, Punkt, Unterstrich und Bindestrich." >&2
+  done
+}
+
+ask_web_password() {
+  local first second
+  while true; do
+    first="$(ask_secret 'Passwort für die WebUI')"
+    if (( ${#first} < 8 )); then
+      echo "Das WebUI-Passwort muss mindestens 8 Zeichen lang sein." >&2
+      continue
+    fi
+    second="$(ask_secret 'Passwort wiederholen')"
+    if [[ "$first" != "$second" ]]; then
+      echo "Die Passwörter stimmen nicht überein." >&2
+      continue
+    fi
+    printf '%s' "$first"
+    return 0
   done
 }
 
@@ -232,6 +262,7 @@ TOUCH_FILES=(
   /usr/local/libexec/svxlink-webui-control-permissions
   /etc/apache2/sites-available/svxlink-webui.conf
   /etc/apache2/conf-available/svxlink-webui-port.conf
+  /etc/apache2/svxlink-webui.htpasswd
 )
 
 backup_file() {
@@ -340,11 +371,15 @@ CURRENT_API_PORT="${CURRENT_API_PORT:-12346}"
 
 CURRENT_UI_PORT=""
 CURRENT_HOSTNAME=""
+CURRENT_WEB_AUTH_USER=""
 if [[ -f /etc/apache2/sites-available/svxlink-webui.conf ]]; then
   CURRENT_UI_PORT="$(sed -nE 's/.*<VirtualHost \*:\s*([0-9]+)>.*/\1/p' /etc/apache2/sites-available/svxlink-webui.conf | head -1)"
   CURRENT_HOSTNAME="$(sed -nE 's/^\s*ServerName\s+([^ ]+).*/\1/p' /etc/apache2/sites-available/svxlink-webui.conf | head -1)"
 fi
-CURRENT_UI_PORT="${CURRENT_UI_PORT:-12345}"
+if [[ -f /etc/apache2/svxlink-webui.htpasswd ]]; then
+  CURRENT_WEB_AUTH_USER="$(sed -n '1s/:.*//p' /etc/apache2/svxlink-webui.htpasswd)"
+fi
+CURRENT_UI_PORT="${CURRENT_UI_PORT:-80}"
 
 CURRENT_CALLSIGN="$(ini_get "$SVXLINK_CONFIG" SimplexLogic CALLSIGN)"
 CURRENT_CONTROL_PTY="$(ini_get "$SVXLINK_CONFIG" SimplexLogic DTMF_CTRL_PTY)"
@@ -433,6 +468,9 @@ fi
 UI_PORT="$(ask_port 'Port für die WebUI' "$CURRENT_UI_PORT")"
 API_PORT="$(ask_port 'Interner Port für die API' "$CURRENT_API_PORT")"
 [[ "$UI_PORT" != "$API_PORT" ]] || die "UI-Port und API-Port dürfen nicht identisch sein."
+
+WEB_AUTH_USER="$(ask_web_username 'Login-Benutzer für die WebUI' "$CURRENT_WEB_AUTH_USER")"
+WEB_AUTH_PASSWORD="$(ask_web_password)"
 
 if [[ -n "${CURRENT_CALLSIGN:-${CURRENT_FM_CALL:-}}" ]]; then
   BASE_CALL="$(ask_callsign 'Lokales SvxLink-/Hotspot-Rufzeichen' "${CURRENT_CALLSIGN:-$CURRENT_FM_CALL}")"
@@ -563,6 +601,7 @@ say "DocumentRoot:              $DOCROOT"
 say "Hostname:                  ${WEB_HOSTNAME:-<kein ServerName / IP>}"
 say "UI Port:                   $UI_PORT"
 say "API Port:                  $API_PORT"
+say "WebUI Login:               $WEB_AUTH_USER (Apache Basic Auth)"
 say "Control PTY:               $CONTROL_PTY"
 say "State PTY:                 $RAW_STATE_PTY"
 say "SvxLink Call:              $BASE_CALL"
@@ -595,6 +634,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 PACKAGES=(
   apache2
+  apache2-utils
   python3
   python3-venv
   python3-pip
@@ -1096,7 +1136,12 @@ EOF
 # Apache
 # -----------------------------------------------------------------------------
 info "Apache konfigurieren"
-a2enmod proxy proxy_http proxy_wstunnel headers rewrite >/dev/null
+a2enmod proxy proxy_http proxy_wstunnel headers rewrite auth_basic authn_file >/dev/null
+
+printf '%s\n' "$WEB_AUTH_PASSWORD" \
+  | htpasswd -cBi /etc/apache2/svxlink-webui.htpasswd "$WEB_AUTH_USER" >/dev/null
+chown root:www-data /etc/apache2/svxlink-webui.htpasswd
+chmod 0640 /etc/apache2/svxlink-webui.htpasswd
 
 if grep -RhsE "^[[:space:]]*Listen[[:space:]]+$UI_PORT([[:space:]]|$)"     /etc/apache2 2>/dev/null     | grep -q .; then
   cat > /etc/apache2/conf-available/svxlink-webui-port.conf <<EOF
@@ -1123,6 +1168,14 @@ $SERVER_NAME_LINE
         AllowOverride None
         Require all granted
     </Directory>
+
+    <Location "/">
+        AuthType Basic
+        AuthName "SvxLink WebUI"
+        AuthBasicProvider file
+        AuthUserFile /etc/apache2/svxlink-webui.htpasswd
+        Require valid-user
+    </Location>
 
     ProxyPreserveHost On
 
@@ -1181,7 +1234,51 @@ systemctl is-active --quiet apache2 || die "Apache ist nicht aktiv."
 # Healthcheck
 sleep 1
 curl -fsS "http://127.0.0.1:$API_PORT/health" >/dev/null || die "Backend-Healthcheck fehlgeschlagen."
-curl -fsS "http://127.0.0.1:$UI_PORT/" >/dev/null || die "WebUI-Healthcheck über Apache fehlgeschlagen."
+
+UNAUTH_CODE="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$UI_PORT/")"
+[[ "$UNAUTH_CODE" == "401" ]] || die "WebUI ist ohne Anmeldung erreichbar (erwartet HTTP 401, erhalten: $UNAUTH_CODE)."
+
+SVXWEBUI_CHECK_USER="$WEB_AUTH_USER" \
+SVXWEBUI_CHECK_PASSWORD="$WEB_AUTH_PASSWORD" \
+SVXWEBUI_CHECK_PORT="$UI_PORT" \
+python3 <<'PY'
+import base64
+import os
+import sys
+import urllib.request
+
+user = os.environ["SVXWEBUI_CHECK_USER"]
+password = os.environ["SVXWEBUI_CHECK_PASSWORD"]
+port = os.environ["SVXWEBUI_CHECK_PORT"]
+
+token = base64.b64encode(
+    f"{user}:{password}".encode()
+).decode()
+
+request = urllib.request.Request(
+    f"http://127.0.0.1:{port}/",
+    headers={
+        "Authorization": f"Basic {token}"
+    },
+)
+
+try:
+    with urllib.request.urlopen(
+        request,
+        timeout=5,
+    ) as response:
+        if response.status != 200:
+            raise RuntimeError(
+                f"HTTP {response.status}"
+            )
+except Exception as exc:
+    print(
+        "Authentifizierter WebUI-Healthcheck "
+        f"fehlgeschlagen: {exc}",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+PY
 
 # -----------------------------------------------------------------------------
 # Fertig
@@ -1191,9 +1288,15 @@ trap - ERR INT TERM
 
 IP_ADDR="$(hostname -I 2>/dev/null | awk '{print $1}')"
 if [[ -n "$WEB_HOSTNAME" ]]; then
-  ACCESS_URL="http://$WEB_HOSTNAME:$UI_PORT/"
+  ACCESS_HOST="$WEB_HOSTNAME"
 else
-  ACCESS_URL="http://${IP_ADDR:-SERVER-IP}:$UI_PORT/"
+  ACCESS_HOST="${IP_ADDR:-SERVER-IP}"
+fi
+
+if [[ "$UI_PORT" == "80" ]]; then
+  ACCESS_URL="http://$ACCESS_HOST/"
+else
+  ACCESS_URL="http://$ACCESS_HOST:$UI_PORT/"
 fi
 
 echo
@@ -1203,11 +1306,13 @@ hr
 say "WebUI:        $ACCESS_URL"
 say "API intern:  http://127.0.0.1:$API_PORT/"
 say "Serviceuser: $WEBUI_USER"
+say "WebUI Login:  $WEB_AUTH_USER"
 say "Control PTY: $CONTROL_PTY -> $(readlink -f "$CONTROL_PTY" 2>/dev/null || echo 'nicht aufgelöst')"
 say "State PTY:   $RAW_STATE_PTY -> $(readlink -f "$RAW_STATE_PTY" 2>/dev/null || echo 'nicht aufgelöst')"
 say "Backup:      $BACKUP_ROOT"
 echo
 say "EchoLink benötigt je nach Netzwerk/Router weiterhin die üblichen eingehenden UDP-Ports 5198/5199."
-say "Die WebUI besitzt aktuell keine eigene Anmeldung. Öffentlich nur mit geeignetem Zugriffsschutz bereitstellen."
+say "Die WebUI ist mit Apache Basic Auth geschützt. Bei Zugriff über nicht vertrauenswürdige Netze zusätzlich HTTPS oder VPN verwenden."
+unset WEB_AUTH_PASSWORD
 echo
 ok "Fertig."

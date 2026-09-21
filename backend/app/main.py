@@ -96,7 +96,7 @@ STATE_PTY_ENABLED = os.getenv("SVXLINK_STATE_PTY_ENABLED", "false").lower() in {
 LOCAL_EVENT_INPUT_ENABLED = os.getenv("SVXLINK_LOCAL_EVENT_INPUT_ENABLED", "false").lower() in {"1", "true", "yes"}
 
 app = FastAPI(title="SvxLink WebUI", version=VERSION)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "PUT"], allow_headers=["*"])
 
 activity_store = ActivityStore(
     ACTIVITY_DB,
@@ -892,6 +892,82 @@ def activity_buddies(
             for item in values
         ]
     }
+
+
+def _dashboard_preferences() -> dict[str, list[str]]:
+    return {
+        "favorite_tgs":
+            activity_store.preference_values(
+                "favorite_tg"
+            ),
+
+        "buddy_calls":
+            activity_store.preference_values(
+                "buddy_call"
+            ),
+    }
+
+
+@app.get("/api/preferences")
+def dashboard_preferences():
+    return _dashboard_preferences()
+
+
+@app.put("/api/preferences")
+def dashboard_preferences_update(
+    payload: dict[str, Any],
+):
+    favorite_tgs = []
+
+    for item in payload.get(
+        "favorite_tgs",
+        [],
+    ):
+        value = str(item).strip()
+
+        if (
+            re.fullmatch(
+                r"\d{1,9}",
+                value,
+            )
+            and value not in favorite_tgs
+        ):
+            favorite_tgs.append(value)
+
+    buddy_calls = []
+
+    for item in payload.get(
+        "buddy_calls",
+        [],
+    ):
+        value = (
+            str(item)
+            .strip()
+            .upper()
+        )
+
+        if (
+            value
+            and len(value) <= 64
+            and re.fullmatch(
+                r"[A-Z0-9][A-Z0-9/_-]*",
+                value,
+            )
+            and value not in buddy_calls
+        ):
+            buddy_calls.append(value)
+
+    activity_store.replace_preferences(
+        "favorite_tg",
+        favorite_tgs,
+    )
+
+    activity_store.replace_preferences(
+        "buddy_call",
+        buddy_calls,
+    )
+
+    return _dashboard_preferences()
 
 
 @app.get("/api/activity/search")

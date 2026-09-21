@@ -88,6 +88,17 @@ class ActivityStore:
                     """
                 )
 
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS dashboard_preferences (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        category TEXT NOT NULL,
+                        value TEXT NOT NULL,
+                        UNIQUE(category, value)
+                    )
+                    """
+                )
+
     def record_event(
         self,
         event: dict[str, Any],
@@ -384,3 +395,72 @@ class ActivityStore:
             for row in rows
             if row is not None
         ]
+
+
+    def preference_values(
+        self,
+        category: str,
+    ) -> list[str]:
+        category = str(category).strip()
+
+        if not category:
+            return []
+
+        with self._lock:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT value
+                    FROM dashboard_preferences
+                    WHERE category = ?
+                    ORDER BY id ASC
+                    """,
+                    (category,),
+                ).fetchall()
+
+        return [
+            str(row["value"])
+            for row in rows
+        ]
+
+    def replace_preferences(
+        self,
+        category: str,
+        values: list[str],
+    ) -> None:
+        category = str(category).strip()
+
+        if not category:
+            return
+
+        clean = []
+
+        for value in values:
+            value = str(value).strip()
+
+            if value and value not in clean:
+                clean.append(value)
+
+        with self._lock:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    DELETE FROM dashboard_preferences
+                    WHERE category = ?
+                    """,
+                    (category,),
+                )
+
+                conn.executemany(
+                    """
+                    INSERT INTO dashboard_preferences (
+                        category,
+                        value
+                    )
+                    VALUES (?, ?)
+                    """,
+                    [
+                        (category, value)
+                        for value in clean
+                    ],
+                )
