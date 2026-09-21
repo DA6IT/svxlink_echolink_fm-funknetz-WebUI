@@ -17,6 +17,13 @@ The application combines a FastAPI backend with a React/Vite frontend and provid
 - direct navigation to operation pages
 - no invented production radio data
 
+### SHARI hardware
+- direct SA818/SA818S detection over UART
+- firmware, RX/TX frequency, channel spacing, CTCSS and squelch
+- current implementation is read-only
+
+Details: [docs/SHARI.en.md](docs/SHARI.en.md)
+
 ### FM-Funknetz
 - currently selected local talkgroup
 - active talkgroups in real time

@@ -8287,3 +8287,251 @@ button {
   }
 
 }
+
+
+/* ==========================================================
+   SHARI HARDWARE READ-ONLY V1
+   ========================================================== */
+
+.shari-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 30px;
+}
+
+.shari-hero .button {
+  flex: 0 0 auto;
+}
+
+.shari-readonly-banner {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  margin-bottom: 18px;
+  padding: 12px 15px;
+
+  border:
+    1px solid
+    rgba(19,185,196,.20);
+
+  border-radius: 14px;
+
+  background:
+    var(--da6it-soft-cyan);
+
+  color:
+    var(--da6it-muted);
+
+  font-size: 11px;
+}
+
+.shari-readonly-banner strong {
+  flex: 0 0 auto;
+
+  padding: 5px 8px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(19,185,196,.12);
+
+  color:
+    var(--da6it-teal);
+
+  font-size: 8px;
+  font-weight: 900;
+
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.shari-hardware-error {
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+
+  margin-bottom: 18px;
+  padding: 14px 16px;
+
+  border:
+    1px solid
+    rgba(190,62,62,.18);
+
+  border-radius: 14px;
+
+  background:
+    rgba(190,62,62,.055);
+}
+
+.shari-hardware-error strong {
+  color: #a23d3d;
+  font-size: 12px;
+}
+
+.shari-hardware-error span {
+  color:
+    var(--da6it-muted);
+
+  font-size: 10px;
+}
+
+.shari-source {
+  color:
+    var(--da6it-muted);
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.shari-parameter-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0,1fr)
+    );
+
+  gap: 12px;
+}
+
+.shari-parameter {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+
+  min-height: 110px;
+  padding: 17px 18px;
+
+  border:
+    1px solid
+    var(--da6it-line);
+
+  border-radius: 17px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #fff 0%,
+      var(--da6it-soft) 100%
+    );
+
+  box-shadow:
+    0 8px 24px
+    rgba(28,83,72,.045);
+}
+
+.shari-parameter > span {
+  color:
+    var(--da6it-muted);
+
+  font-size: 9px;
+  font-weight: 750;
+
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+
+.shari-parameter strong {
+  margin-top: 4px;
+
+  color:
+    var(--da6it-ink);
+
+  font-size: 22px;
+  font-weight: 850;
+}
+
+.shari-parameter small {
+  margin-top: auto;
+
+  color:
+    var(--da6it-teal);
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.shari-config-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 24px;
+
+  padding: 19px 21px;
+
+  border:
+    1px dashed
+    var(--da6it-line);
+
+  border-radius: 17px;
+
+  background:
+    var(--da6it-soft);
+}
+
+.shari-config-preview > div {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+.shari-config-preview strong {
+  color:
+    var(--da6it-ink);
+
+  font-size: 14px;
+}
+
+.shari-config-preview span {
+  max-width: 620px;
+
+  color:
+    var(--da6it-muted);
+
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.shari-config-preview button:disabled {
+  opacity: .42;
+  cursor: default;
+}
+
+@media (max-width: 900px) {
+
+  .shari-parameter-grid {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0,1fr)
+      );
+  }
+
+}
+
+@media (max-width: 650px) {
+
+  .shari-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .shari-parameter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shari-config-preview {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+}

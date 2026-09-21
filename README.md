@@ -17,6 +17,13 @@ Die Anwendung kombiniert ein FastAPI-Backend mit einem React/Vite-Frontend und s
 - direkte Navigation zu den Betriebsbereichen
 - keine erfundenen Betriebsdaten im Produktionsmodus
 
+### SHARI-Hardware
+- direkte SA818/SA818S-Erkennung über UART
+- Firmware, RX/TX-Frequenz, Kanalraster, CTCSS und Squelch
+- aktueller Stand read-only
+
+Details: [docs/SHARI.md](docs/SHARI.md)
+
 ### FM-Funknetz
 - aktuelle lokale Talkgroup
 - aktive Talkgroups in Echtzeit

@@ -25,6 +25,7 @@ from .fm_mqtt import FMFunknetzMQTT
 from .fm_nodes import FMNodeDirectory
 from .fm_stats import FMStatsDirectory
 from .fm_tg_names import FMTalkgroupNames
+from .shari_radio import read_shari_hardware
 
 VERSION = "0.7.0"
 DEMO = os.getenv("SVXLINK_WEBUI_DEMO", "false").lower() in {"1", "true", "yes"}
@@ -724,6 +725,12 @@ def svxlink_status():
 @app.get("/api/system")
 def system():
     return {"hostname": platform.node(), "os": platform.platform(), "python": platform.python_version(), "uptime": int(time.monotonic()), "version": VERSION}
+
+
+@app.get("/api/shari/hardware")
+def shari_hardware():
+    """Read the current SA818/SA818S radio configuration without changing it."""
+    return read_shari_hardware()
 
 
 @app.get("/api/node-info")

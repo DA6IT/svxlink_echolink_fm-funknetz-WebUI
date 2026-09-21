@@ -101,10 +101,33 @@ type TalkgroupsResponse = {
 
 };
 
+type ShariHardware = {
+  available: boolean;
+  read_only: boolean;
+  port: string;
+  baudrate: number;
+  module?: string;
+  firmware?: string;
+  firmware_raw?: string;
+  tx_frequency_mhz?: string;
+  rx_frequency_mhz?: string;
+  bandwidth_khz?: number | null;
+  bandwidth_raw?: string;
+  tx_cxcss_code?: string;
+  tx_cxcss_label?: string;
+  rx_cxcss_code?: string;
+  rx_cxcss_label?: string;
+  squelch?: number;
+  source?: string;
+  updated_at?: string;
+  reason?: string;
+};
+
 type View =
   | 'overview'
   | 'fm'
   | 'echolink'
+  | 'shari'
   | 'system';
 
 type TgView =
@@ -402,6 +425,98 @@ function App() {
 
   const [view, setView] =
     useState<View>('overview');
+
+  // --- SHARI HARDWARE READ-ONLY V1 ---
+
+  const [
+    shariHardware,
+    setShariHardware,
+  ] = useState<ShariHardware | null>(
+    null
+  );
+
+  const [
+    shariHardwareBusy,
+    setShariHardwareBusy,
+  ] = useState(false);
+
+  const [
+    shariHardwareError,
+    setShariHardwareError,
+  ] = useState('');
+
+  const loadShariHardware =
+    async () => {
+
+      setShariHardwareBusy(
+        true
+      );
+
+      setShariHardwareError(
+        ''
+      );
+
+      try {
+
+        const response =
+          await fetch(
+            `${api}/shari/hardware`,
+            {
+              cache:
+                'no-store',
+            }
+          );
+
+        const data:
+          ShariHardware =
+            await response.json();
+
+        if (
+          !response.ok ||
+          !data.available
+        ) {
+          throw new Error(
+            data.reason ||
+            'SHARI-Funkmodul nicht erreichbar.'
+          );
+        }
+
+        setShariHardware(
+          data
+        );
+
+      } catch (error) {
+
+        setShariHardware(
+          null
+        );
+
+        setShariHardwareError(
+          error instanceof Error
+            ? error.message
+            : 'SHARI-Funkmodul konnte nicht ausgelesen werden.'
+        );
+
+      } finally {
+
+        setShariHardwareBusy(
+          false
+        );
+
+      }
+    };
+
+  useEffect(() => {
+
+    if (
+      view !== 'shari'
+    ) {
+      return;
+    }
+
+    void loadShariHardware();
+
+  }, [view]);
 
   // --- TOP TALKGROUPS STATE ---
 
@@ -3021,6 +3136,10 @@ function App() {
       label: 'EchoLink',
     },
     {
+      id: 'shari',
+      label: 'SHARI',
+    },
+    {
       id: 'system',
       label: 'System',
     },
@@ -5309,6 +5428,315 @@ function App() {
 
         </>
 
+      )}
+
+
+      {view === 'shari' && (
+        <>
+          <section className="page-hero">
+            <div className="hero-glow hero-glow-green" />
+            <div className="hero-glow hero-glow-cyan" />
+
+            <div className="content shari-hero">
+              <div>
+                <span className="eyebrow">
+                  SHARI · FUNKMODUL
+                </span>
+
+                <h1>
+                  SA818 Hardware
+                </h1>
+
+                <p>
+                  Funkparameter direkt aus dem
+                  eingebauten Funkmodul auslesen.
+                </p>
+              </div>
+
+              <button
+                className="button button-outline"
+                disabled={shariHardwareBusy}
+                onClick={() =>
+                  void loadShariHardware()
+                }
+              >
+                {shariHardwareBusy
+                  ? 'Wird ausgelesen …'
+                  : 'Neu auslesen'}
+              </button>
+            </div>
+          </section>
+
+          <main className="content main-content">
+
+            <div className="shari-readonly-banner">
+              <strong>
+                Read-only
+              </strong>
+
+              <span>
+                Dieser erste Stand liest ausschließlich
+                DMOCONNECT, VERSION und DMOREADGROUP.
+                Es werden keine Funkparameter verändert.
+              </span>
+            </div>
+
+            {shariHardwareError && (
+              <div className="shari-hardware-error">
+                <strong>
+                  Funkmodul nicht erreichbar
+                </strong>
+
+                <span>
+                  {shariHardwareError}
+                </span>
+              </div>
+            )}
+
+            <div className="system-grid">
+
+              <article className="system-card">
+                <span>
+                  Modul
+                </span>
+
+                <strong>
+                  {shariHardware?.module || '—'}
+                </strong>
+
+                <small>
+                  {shariHardware?.source ||
+                    'SA818 UART'}
+                </small>
+              </article>
+
+              <article className="system-card">
+                <span>
+                  Firmware
+                </span>
+
+                <strong>
+                  {shariHardware?.firmware || '—'}
+                </strong>
+
+                <small>
+                  {shariHardware?.firmware_raw ||
+                    'Noch nicht ausgelesen'}
+                </small>
+              </article>
+
+              <article className="system-card">
+                <span>
+                  Schnittstelle
+                </span>
+
+                <strong>
+                  {shariHardware?.port ||
+                    '/dev/ttyUSB0'}
+                </strong>
+
+                <small>
+                  {shariHardware?.baudrate ||
+                    9600}{' '}
+                  Baud
+                </small>
+              </article>
+
+              <article className="system-card">
+                <span>
+                  Verbindung
+                </span>
+
+                <strong>
+                  {shariHardware?.available
+                    ? 'Online'
+                    : shariHardwareBusy
+                    ? 'Lese …'
+                    : 'Nicht geprüft'}
+                </strong>
+
+                <small>
+                  {shariHardware?.updated_at
+                    ? new Date(
+                        shariHardware.updated_at
+                      ).toLocaleString(
+                        'de-DE'
+                      )
+                    : '—'}
+                </small>
+              </article>
+
+            </div>
+
+            <section className="section">
+
+              <div className="section-heading">
+
+                <div>
+                  <span className="eyebrow">
+                    AKTUELLE EINSTELLUNGEN
+                  </span>
+
+                  <h2>
+                    Funkparameter
+                  </h2>
+                </div>
+
+                <span className="shari-source">
+                  direkt aus dem SA818S
+                </span>
+
+              </div>
+
+              <div className="shari-parameter-grid">
+
+                <article className="shari-parameter">
+                  <span>
+                    TX-Frequenz
+                  </span>
+
+                  <strong>
+                    {shariHardware?.tx_frequency_mhz
+                      ? `${shariHardware.tx_frequency_mhz} MHz`
+                      : '—'}
+                  </strong>
+
+                  <small>
+                    Sendefrequenz
+                  </small>
+                </article>
+
+                <article className="shari-parameter">
+                  <span>
+                    RX-Frequenz
+                  </span>
+
+                  <strong>
+                    {shariHardware?.rx_frequency_mhz
+                      ? `${shariHardware.rx_frequency_mhz} MHz`
+                      : '—'}
+                  </strong>
+
+                  <small>
+                    Empfangsfrequenz
+                  </small>
+                </article>
+
+                <article className="shari-parameter">
+                  <span>
+                    Kanalraster
+                  </span>
+
+                  <strong>
+                    {shariHardware?.bandwidth_khz
+                      ? `${shariHardware.bandwidth_khz} kHz`
+                      : '—'}
+                  </strong>
+
+                  <small>
+                    {shariHardware?.bandwidth_khz === 12.5
+                      ? 'Narrowband'
+                      : shariHardware?.bandwidth_khz === 25
+                      ? 'Wideband'
+                      : '—'}
+                  </small>
+                </article>
+
+                <article className="shari-parameter">
+                  <span>
+                    CTCSS TX
+                  </span>
+
+                  <strong>
+                    {shariHardware?.tx_cxcss_label ||
+                      '—'}
+                  </strong>
+
+                  <small>
+                    Code{' '}
+                    {shariHardware?.tx_cxcss_code ||
+                      '—'}
+                  </small>
+                </article>
+
+                <article className="shari-parameter">
+                  <span>
+                    CTCSS RX
+                  </span>
+
+                  <strong>
+                    {shariHardware?.rx_cxcss_label ||
+                      '—'}
+                  </strong>
+
+                  <small>
+                    Code{' '}
+                    {shariHardware?.rx_cxcss_code ||
+                      '—'}
+                  </small>
+                </article>
+
+                <article className="shari-parameter">
+                  <span>
+                    Squelch
+                  </span>
+
+                  <strong>
+                    {shariHardware?.squelch ??
+                      '—'}
+                  </strong>
+
+                  <small>
+                    Bereich 0–8
+                  </small>
+                </article>
+
+              </div>
+
+            </section>
+
+            <section className="section">
+
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">
+                    NÄCHSTER SCHRITT
+                  </span>
+
+                  <h2>
+                    Konfiguration
+                  </h2>
+                </div>
+              </div>
+
+              <div className="shari-config-preview">
+
+                <div>
+                  <strong>
+                    Funkparameter bearbeiten
+                  </strong>
+
+                  <span>
+                    TX/RX-Frequenz, Raster,
+                    CTCSS und Squelch werden
+                    hier im nächsten Schritt
+                    editierbar.
+                  </span>
+                </div>
+
+                <button
+                  className="button button-primary"
+                  disabled
+                >
+                  Am Modul speichern
+                </button>
+
+              </div>
+
+            </section>
+
+          </main>
+        </>
       )}
 
       {view === 'system' && (
