@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 PROJECT_NAME="SvxLink WebUI"
-INSTALLER_VERSION="1.0.0-pre3"
+INSTALLER_VERSION="1.0.0-pre4"
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_ROOT="/var/backups/svxlink-webui/${TIMESTAMP}"
@@ -1102,7 +1102,6 @@ cat > /etc/systemd/system/svxlink-webui-state-permissions.path <<EOF
 Description=Watch SvxLink STATE_PTY for WebUI
 
 [Path]
-PathExists=$RAW_STATE_PTY
 PathChanged=$RAW_STATE_PTY
 Unit=svxlink-webui-state-permissions.service
 
@@ -1125,7 +1124,6 @@ cat > /etc/systemd/system/svxlink-webui-control-permissions.path <<EOF
 Description=Watch SvxLink Control PTY for WebUI
 
 [Path]
-PathExists=$CONTROL_PTY
 PathChanged=$CONTROL_PTY
 Unit=svxlink-webui-control-permissions.service
 
@@ -1291,7 +1289,7 @@ info "Projekt prüfen"
 "$INSTALL_DIR/.venv/bin/python" -m py_compile "$INSTALL_DIR"/backend/app/*.py
 (
   cd "$INSTALL_DIR"
-  PYTHONPATH=backend "$INSTALL_DIR/.venv/bin/python" -m pytest backend/app/test_api.py -q
+  PYTHONPATH=backend "$INSTALL_DIR/.venv/bin/python" -m pytest -q backend/tests
 )
 
 # -----------------------------------------------------------------------------
@@ -1337,6 +1335,7 @@ systemctl restart svxlink-webui-state-collector.service
 systemctl restart svxlink-webui.service
 systemctl reload apache2
 
+systemctl is-active --quiet svxlink-webui-state-collector.service || die "SvxLink State-Collector ist nicht aktiv."
 systemctl is-active --quiet svxlink-webui || die "svxlink-webui ist nicht aktiv."
 systemctl is-active --quiet apache2 || die "Apache ist nicht aktiv."
 
