@@ -6,6 +6,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from .update_worker_testenv import (
+    build_test_environment,
+)
+
 from .update_worker_common import (
     BRANCH_RE,
     INSTALL_DIR,
@@ -420,15 +424,11 @@ def test_backend(
         cwd=source,
         log=log,
         timeout=300,
-        extra_env={
-            "PYTHONPATH":
-                str(
-                    source
-                    / "backend"
-                ),
-            "SVXLINK_WEBUI_RESTART_WATCHER_ENABLED":
-                "false",
-        },
+        extra_env=
+            build_test_environment(
+                source,
+                job_dir,
+            ),
     )
 
 
