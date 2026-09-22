@@ -137,9 +137,123 @@ def backup_frontend(
             )
 
 
+def _deploy_file(
+    source: Path,
+    target: Path,
+) -> None:
+    if (
+        source.is_symlink()
+        or not source.is_file()
+    ):
+        raise RuntimeError(
+            "Nicht reguläre Frontend-Datei: "
+            f"{source}"
+        )
+
+    target.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    tmp = target.with_name(
+        "."
+        + target.name
+        + ".update-"
+        + uuid.uuid4().hex
+    )
+
+    try:
+        shutil.copyfile(
+            source,
+            tmp,
+        )
+
+        os.replace(
+            tmp,
+            target,
+        )
+
+    finally:
+        tmp.unlink(
+            missing_ok=True
+        )
+
+
+def _deploy_tree(
+    source: Path,
+    target: Path,
+) -> None:
+    if (
+        source.is_symlink()
+        or not source.is_dir()
+    ):
+        raise RuntimeError(
+            "Ungültiges Frontend-Verzeichnis: "
+            f"{source}"
+        )
+
+    target.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    for root, dirs, files in os.walk(
+        source,
+        topdown=True,
+        followlinks=False,
+    ):
+        source_root = Path(root)
+
+        relative = source_root.relative_to(
+            source
+        )
+
+        target_root = (
+            target
+            / relative
+        )
+
+        target_root.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        for name in tuple(dirs):
+            source_dir = (
+                source_root
+                / name
+            )
+
+            if source_dir.is_symlink():
+                raise RuntimeError(
+                    "Symlink im Frontend "
+                    f"nicht erlaubt: {source_dir}"
+                )
+
+            (
+                target_root
+                / name
+            ).mkdir(
+                exist_ok=True
+            )
+
+        for name in files:
+            _deploy_file(
+                source_root
+                / name,
+                target_root
+                / name,
+            )
+
+
 def deploy_frontend(
     source: Path,
 ) -> None:
+    if not source.is_dir():
+        raise RuntimeError(
+            "Frontend-Build fehlt."
+        )
+
     assets_source = (
         source
         / "assets"
@@ -150,16 +264,10 @@ def deploy_frontend(
         / "assets"
     )
 
-    assets_target.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
     if assets_source.is_dir():
-        shutil.copytree(
+        _deploy_tree(
             assets_source,
             assets_target,
-            dirs_exist_ok=True,
         )
 
     for item in source.iterdir():
@@ -175,39 +283,19 @@ def deploy_frontend(
         )
 
         if item.is_dir():
-            shutil.copytree(
+            _deploy_tree(
                 item,
                 target,
-                dirs_exist_ok=True,
             )
         else:
-            tmp = target.with_name(
-                f".{target.name}.update"
-            )
-
-            shutil.copy2(
+            _deploy_file(
                 item,
-                tmp,
-            )
-
-            os.replace(
-                tmp,
                 target,
             )
 
-    index_tmp = (
-        DOCROOT
-        / ".index.html.update"
-    )
-
-    shutil.copy2(
+    _deploy_file(
         source
         / "index.html",
-        index_tmp,
-    )
-
-    os.replace(
-        index_tmp,
         DOCROOT
         / "index.html",
     )
@@ -219,10 +307,7 @@ def deploy_frontend(
             in assets_source.iterdir()
         }
 
-        for item in (
-            assets_target
-            .iterdir()
-        ):
+        for item in assets_target.iterdir():
             if item.name in keep:
                 continue
 
