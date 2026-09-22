@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0-dev.1 — Rootless updater validation
+
+- Vollständiger rootloser Updatepfad live validiert.
+
+
 Alle wesentlichen Änderungen der SvxLink WebUI werden hier dokumentiert.
 
 ## 0.8.0-dev — Unreleased
