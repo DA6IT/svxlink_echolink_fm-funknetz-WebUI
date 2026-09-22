@@ -841,6 +841,26 @@ def _config() -> dict[str, str]:
     return result
 
 
+def _module_id() -> str:
+    module_id = (
+        _config()
+        .get(
+            "ID",
+            "",
+        )
+        .strip()
+    )
+
+    if not module_id.isdigit():
+        raise RuntimeError(
+            "Ungültige EchoLink Modul-ID "
+            f"in {CONFIG_PATH}: "
+            f"{module_id or 'nicht gesetzt'}"
+        )
+
+    return module_id
+
+
 def _node_id() -> str:
 
     if not NODE_INFO_PATH.is_file():
@@ -1520,7 +1540,7 @@ def activate_module() -> dict[
 
 
     _write_dtmf(
-        "2#"
+        f"{_module_id()}#"
     )
 
     return {
@@ -1608,7 +1628,7 @@ def connect_node(
     ]:
 
         _write_dtmf(
-            "2#"
+            f"{_module_id()}#"
         )
 
         time.sleep(
