@@ -6,6 +6,12 @@ Alle wesentlichen Änderungen der SvxLink WebUI werden hier dokumentiert.
 
 ### Neu
 
+- Sicherer Update-Workflow mit getrenntem Staging.
+- Automatische Backend-, Security- und Frontend-Tests vor Aktivierung.
+- Versionierte Python-Runtimes über `.venv-current`.
+- Kontrollierter Backend-Selbstrestart ohne sudo/root.
+- Frontend-Backup, Healthcheck und automatischer Rollback.
+
 - Browserbasiertes Update-Center im Bereich System.
 - Anzeige der installierten Version und Git-Revision.
 - Prüfung des konfigurierten Update-Kanals.

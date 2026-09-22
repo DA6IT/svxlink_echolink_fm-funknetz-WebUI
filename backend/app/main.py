@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from .activity_store import ActivityStore
@@ -27,7 +27,11 @@ from .fm_stats import FMStatsDirectory
 from .fm_tg_names import FMTalkgroupNames
 from .shari_radio import read_shari_hardware
 from .system_health import system_health
-from .updater import update_status
+from .updater import (
+    request_update,
+    start_restart_watcher,
+    update_status,
+)
 
 APP_ROOT = Path(__file__).resolve().parents[2]
 VERSION_FILE = APP_ROOT / "VERSION"
@@ -108,7 +112,7 @@ STATE_PTY_ENABLED = os.getenv("SVXLINK_STATE_PTY_ENABLED", "false").lower() in {
 LOCAL_EVENT_INPUT_ENABLED = os.getenv("SVXLINK_LOCAL_EVENT_INPUT_ENABLED", "false").lower() in {"1", "true", "yes"}
 
 app = FastAPI(title="SvxLink WebUI", version=VERSION)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "PUT"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "PUT", "POST"], allow_headers=["*"])
 
 activity_store = ActivityStore(
     ACTIVITY_DB,
@@ -220,6 +224,8 @@ async def _startup() -> None:
     _app_loop = (
         asyncio.get_running_loop()
     )
+
+    start_restart_watcher()
 
     if FM_MQTT_ENABLED:
         fm_mqtt.start(
@@ -745,6 +751,26 @@ def system_health_status():
 @app.get("/api/system/update")
 def system_update_status():
     return update_status()
+
+
+@app.post("/api/system/update/install")
+def system_update_install():
+    try:
+        return request_update(
+            "install"
+        )
+
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=str(exc),
+        ) from exc
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
 
 
 @app.get("/api/shari/hardware")

@@ -21,3 +21,7 @@ events.tsv
 .DS_Store
 .idea/
 .vscode/
+
+.venv-current
+.venv-current.next
+.venv-current.rollback

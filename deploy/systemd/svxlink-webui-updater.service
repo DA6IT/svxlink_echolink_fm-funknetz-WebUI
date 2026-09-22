@@ -11,8 +11,9 @@ Group=svxlink-webui-updater
 SupplementaryGroups=svxlink-webui-update
 
 WorkingDirectory=/opt/svxlink-webui/backend
+EnvironmentFile=-/etc/svxlink-webui/environment
 
-ExecStart=/opt/svxlink-webui/.venv/bin/python -m app.updater_worker
+ExecStart=/usr/bin/python3 -m app.updater_worker
 
 Restart=always
 RestartSec=2
