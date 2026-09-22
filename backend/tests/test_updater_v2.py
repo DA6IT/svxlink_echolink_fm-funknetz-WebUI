@@ -447,7 +447,7 @@ def test_worker_cleans_matching_restart_handshake(
     assert not ack.exists()
 
 
-def test_frontend_backup_drops_special_mode_bits(
+def test_frontend_backup_uses_private_modes(
     tmp_path,
     monkeypatch,
 ):
@@ -485,10 +485,6 @@ def test_frontend_backup_drops_special_mode_bits(
         encoding="utf-8",
     )
 
-    assets.chmod(
-        0o2770
-    )
-
     monkeypatch.setattr(
         update_worker_deploy,
         "DOCROOT",
@@ -511,15 +507,31 @@ def test_frontend_backup_drops_special_mode_bits(
         encoding="utf-8"
     ) == "hello"
 
-    mode = (
-        destination
-        / "assets"
-    ).stat().st_mode
-
-    assert not (
-        mode
-        & stat.S_ISGID
+    assets_mode = stat.S_IMODE(
+        (
+            destination
+            / "assets"
+        ).stat().st_mode
     )
+
+    index_mode = stat.S_IMODE(
+        (
+            destination
+            / "index.html"
+        ).stat().st_mode
+    )
+
+    app_mode = stat.S_IMODE(
+        (
+            destination
+            / "assets"
+            / "app.js"
+        ).stat().st_mode
+    )
+
+    assert assets_mode == 0o700
+    assert index_mode == 0o600
+    assert app_mode == 0o600
 
 
 def test_frontend_backup_rejects_symlinks(
