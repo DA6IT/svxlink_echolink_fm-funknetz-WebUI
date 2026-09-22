@@ -7,6 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
 
+from .secure_http import https_urlopen
+
 import paho.mqtt.client as mqtt
 
 
@@ -426,7 +428,7 @@ class FMNodeDirectory:
         )
 
         try:
-            with urllib.request.urlopen(
+            with https_urlopen(
                 request,
                 timeout=6,
             ) as response:

@@ -1697,7 +1697,10 @@ from urllib.parse import (
 )
 from urllib.request import (
     Request,
-    urlopen,
+)
+
+from .secure_http import (
+    https_urlopen,
 )
 
 
@@ -1988,7 +1991,7 @@ def _echolink_http(
     )
 
 
-    with urlopen(
+    with https_urlopen(
         request,
         timeout=
             ECHOLINK_HTTP_TIMEOUT,

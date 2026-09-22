@@ -7,6 +7,8 @@ import time
 import urllib.request
 from typing import Any
 
+from .secure_http import https_urlopen
+
 
 class FMTalkgroupNames:
     """
@@ -63,7 +65,7 @@ class FMTalkgroupNames:
         )
 
         try:
-            with urllib.request.urlopen(
+            with https_urlopen(
                 request,
                 timeout=8,
             ) as response:

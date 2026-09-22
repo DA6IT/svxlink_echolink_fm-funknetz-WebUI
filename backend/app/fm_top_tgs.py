@@ -7,6 +7,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from .secure_http import https_urlopen
+
 
 API_URL = (
     "https://dashboard.fm-funknetz.de/"
@@ -170,7 +172,7 @@ def _download(
         )
     )
 
-    with urllib.request.urlopen(
+    with https_urlopen(
         request,
         timeout=8,
     ) as response:

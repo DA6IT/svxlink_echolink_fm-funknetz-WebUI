@@ -27,8 +27,17 @@ from .fm_stats import FMStatsDirectory
 from .fm_tg_names import FMTalkgroupNames
 from .shari_radio import read_shari_hardware
 from .system_health import system_health
+from .updater import update_status
 
-VERSION = "0.7.0"
+APP_ROOT = Path(__file__).resolve().parents[2]
+VERSION_FILE = APP_ROOT / "VERSION"
+
+try:
+    VERSION = VERSION_FILE.read_text(
+        encoding="utf-8"
+    ).strip() or "0.7.0"
+except OSError:
+    VERSION = "0.7.0"
 DEMO = os.getenv("SVXLINK_WEBUI_DEMO", "false").lower() in {"1", "true", "yes"}
 CONFIG_PATH = Path(os.getenv("SVXLINK_CONFIG_PATH", "/etc/svxlink/svxlink.conf"))
 NODE_INFO_PATH = Path(os.getenv("SVXLINK_NODE_INFO_PATH", "/etc/svxlink/node_info.json"))
@@ -731,6 +740,11 @@ def system():
 @app.get("/api/system/health")
 def system_health_status():
     return system_health()
+
+
+@app.get("/api/system/update")
+def system_update_status():
+    return update_status()
 
 
 @app.get("/api/shari/hardware")

@@ -1,17 +1,45 @@
-stages: [test, build]
+stages:
+  - security
+  - test
+  - build
+
+backend-security:
+  image: python:3.13
+  stage: security
+  script:
+    - python -m pip install --upgrade "pip>=26.1.2"
+    - pip install bandit pip-audit
+    - bandit -q -r backend/app -ll
+    - pip-audit -r backend/requirements.txt
+    - pip-audit -r backend/requirements-test.txt
+
+frontend-security:
+  image: node:22
+  stage: security
+  script:
+    - cd frontend
+    - npm ci
+    - npm audit --audit-level=moderate
+
 backend-test:
-  image: python:3.12
+  image: python:3.13
   stage: test
   script:
-    - pip install -r backend/requirements.txt
+    - pip install -r backend/requirements-test.txt
     - PYTHONPATH=backend pytest -q backend/tests
+
 frontend-lint:
   image: node:22
   stage: test
   script:
-    - cd frontend && npm install && npm run lint
+    - cd frontend
+    - npm ci
+    - npm run lint
+
 frontend-build:
   image: node:22
   stage: build
   script:
-    - cd frontend && npm install && npm run build
+    - cd frontend
+    - npm ci
+    - npm run build

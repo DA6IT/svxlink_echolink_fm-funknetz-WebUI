@@ -7,6 +7,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from .secure_http import https_urlopen
+
 
 class FMStatsDirectory:
     """
@@ -139,7 +141,7 @@ class FMStatsDirectory:
         )
 
         try:
-            with urllib.request.urlopen(
+            with https_urlopen(
                 request,
                 timeout=8,
             ) as response:
