@@ -166,7 +166,7 @@ def fetch_target(
         "--no-tags",
         UPDATE_REMOTE,
         (
-            f"refs/heads/"
+            f"+refs/heads/"
             f"{UPDATE_BRANCH}:"
             f"{ref}"
         ),
