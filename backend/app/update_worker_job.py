@@ -23,6 +23,7 @@ from .update_worker_common import (
 
 from .update_worker_deploy import (
     activate_venv,
+    clear_restart_handshake,
     deploy_frontend,
     restart_backend,
     wait_health,
@@ -210,6 +211,12 @@ def process(
             log,
         )
 
+        shutil.rmtree(
+            job_dir
+            / "test-venv",
+            ignore_errors=True,
+        )
+
         phase(
             job,
             "building",
@@ -374,7 +381,7 @@ def process(
             log,
         )
 
-        restart_backend(
+        restart_id = restart_backend(
             request_id,
             target,
             version,
@@ -396,6 +403,10 @@ def process(
                 "Healthcheck der neuen "
                 "Version fehlgeschlagen."
             )
+
+        clear_restart_handshake(
+            restart_id
+        )
 
         phase(
             job,
@@ -423,6 +434,12 @@ def process(
         return True
 
     except Exception as exc:
+        shutil.rmtree(
+            job_dir
+            / "test-venv",
+            ignore_errors=True,
+        )
+
         error = str(
             exc
         )
@@ -467,10 +484,12 @@ def process(
                     frontend_backup
                 )
 
-                restart_backend(
-                    request_id,
-                    expected,
-                    previous_version,
+                rollback_restart_id = (
+                    restart_backend(
+                        request_id,
+                        expected,
+                        previous_version,
+                    )
                 )
 
                 job[
@@ -482,6 +501,13 @@ def process(
                     if previous_version
                     else False
                 )
+
+                if job[
+                    "rollback_ok"
+                ]:
+                    clear_restart_handshake(
+                        rollback_restart_id
+                    )
 
             except Exception as rollback_exc:
                 job[

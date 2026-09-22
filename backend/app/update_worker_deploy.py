@@ -5,16 +5,19 @@ import json
 import os
 import shutil
 import time
+import uuid
 
 from pathlib import Path
 
 from .update_worker_common import (
     DOCROOT,
     INSTALL_DIR,
+    RESTART_ACK_FILE,
     RESTART_REQUEST_FILE,
     VENV_LINK,
     atomic_json,
     now_iso,
+    read_json,
 )
 
 
@@ -144,22 +147,67 @@ def restart_backend(
     request_id: str,
     revision: str,
     version: str,
-) -> None:
+) -> str:
+    restart_id = str(
+        uuid.uuid4()
+    )
+
     atomic_json(
         RESTART_REQUEST_FILE,
         {
             "action":
                 "restart",
+
             "request_id":
                 request_id,
+
+            "restart_id":
+                restart_id,
+
             "revision":
                 revision,
+
             "version":
                 version,
+
             "created_at":
                 now_iso(),
         },
     )
+
+    return restart_id
+
+
+def clear_restart_handshake(
+    restart_id: str,
+) -> None:
+    request = read_json(
+        RESTART_REQUEST_FILE
+    )
+
+    if (
+        request.get(
+            "restart_id"
+        )
+        == restart_id
+    ):
+        RESTART_REQUEST_FILE.unlink(
+            missing_ok=True
+        )
+
+    ack = read_json(
+        RESTART_ACK_FILE
+    )
+
+    if (
+        ack.get(
+            "restart_id"
+        )
+        == restart_id
+    ):
+        RESTART_ACK_FILE.unlink(
+            missing_ok=True
+        )
 
 
 def health(

@@ -250,3 +250,198 @@ def test_prepare_environment_avoids_live_paths(
         assert not value.startswith(
             forbidden_prefixes
         )
+
+
+def test_restart_ack_is_exactly_once(
+    tmp_path,
+    monkeypatch,
+):
+    import json
+
+    from app import update_api
+
+    control = (
+        tmp_path
+        / "control"
+        / "backend-restart.json"
+    )
+
+    ack = (
+        tmp_path
+        / "requests"
+        / "backend-restart-ack.json"
+    )
+
+    monkeypatch.setattr(
+        update_api,
+        "RESTART_REQUEST_FILE",
+        control,
+    )
+
+    monkeypatch.setattr(
+        update_api,
+        "RESTART_ACK_FILE",
+        ack,
+    )
+
+    restart_id = str(
+        uuid.uuid4()
+    )
+
+    update_api.atomic_json(
+        control,
+        {
+            "action":
+                "restart",
+
+            "request_id":
+                str(
+                    uuid.uuid4()
+                ),
+
+            "restart_id":
+                restart_id,
+
+            "revision":
+                "a" * 40,
+
+            "version":
+                "test",
+        },
+    )
+
+    assert (
+        update_api
+        .acknowledge_restart_request()
+        is True
+    )
+
+    data = json.loads(
+        ack.read_text(
+            encoding="utf-8",
+        )
+    )
+
+    assert (
+        data[
+            "restart_id"
+        ]
+        == restart_id
+    )
+
+    assert (
+        update_api
+        .acknowledge_restart_request()
+        is False
+    )
+
+
+def test_restart_rejects_invalid_nonce(
+    tmp_path,
+    monkeypatch,
+):
+    from app import update_api
+
+    control = (
+        tmp_path
+        / "control"
+        / "backend-restart.json"
+    )
+
+    ack = (
+        tmp_path
+        / "requests"
+        / "backend-restart-ack.json"
+    )
+
+    monkeypatch.setattr(
+        update_api,
+        "RESTART_REQUEST_FILE",
+        control,
+    )
+
+    monkeypatch.setattr(
+        update_api,
+        "RESTART_ACK_FILE",
+        ack,
+    )
+
+    update_api.atomic_json(
+        control,
+        {
+            "action":
+                "restart",
+
+            "restart_id":
+                "../../bad",
+
+            "revision":
+                "a" * 40,
+        },
+    )
+
+    assert (
+        update_api
+        .acknowledge_restart_request()
+        is False
+    )
+
+    assert not ack.exists()
+
+
+def test_worker_cleans_matching_restart_handshake(
+    tmp_path,
+    monkeypatch,
+):
+    from app import update_worker_deploy
+
+    control = (
+        tmp_path
+        / "control"
+        / "backend-restart.json"
+    )
+
+    ack = (
+        tmp_path
+        / "requests"
+        / "backend-restart-ack.json"
+    )
+
+    monkeypatch.setattr(
+        update_worker_deploy,
+        "RESTART_REQUEST_FILE",
+        control,
+    )
+
+    monkeypatch.setattr(
+        update_worker_deploy,
+        "RESTART_ACK_FILE",
+        ack,
+    )
+
+    restart_id = str(
+        uuid.uuid4()
+    )
+
+    update_worker_deploy.atomic_json(
+        control,
+        {
+            "restart_id":
+                restart_id,
+        },
+    )
+
+    update_worker_deploy.atomic_json(
+        ack,
+        {
+            "restart_id":
+                restart_id,
+        },
+    )
+
+    update_worker_deploy.clear_restart_handshake(
+        restart_id
+    )
+
+    assert not control.exists()
+    assert not ack.exists()

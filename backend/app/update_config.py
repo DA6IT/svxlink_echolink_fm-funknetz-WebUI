@@ -86,6 +86,12 @@ RESTART_REQUEST_FILE = (
     / "backend-restart.json"
 )
 
+RESTART_ACK_FILE = (
+    IPC_DIR
+    / "requests"
+    / "backend-restart-ack.json"
+)
+
 REV_RE = re.compile(
     r"^[0-9a-f]{40}$"
 )

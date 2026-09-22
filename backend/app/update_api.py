@@ -11,6 +11,7 @@ from typing import Any
 
 from .update_config import (
     REQUEST_FILE,
+    RESTART_ACK_FILE,
     RESTART_REQUEST_FILE,
     REV_RE,
     UPDATE_BRANCH,
@@ -220,40 +221,139 @@ def request_update(
     }
 
 
+def _read_json_file(
+    path: Path,
+) -> dict[str, Any]:
+    try:
+        data = json.loads(
+            path.read_text(
+                encoding="utf-8",
+            )
+        )
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+    ):
+        return {}
+
+    return (
+        data
+        if isinstance(
+            data,
+            dict,
+        )
+        else {}
+    )
+
+
+def _valid_uuid(
+    value: str,
+) -> bool:
+    try:
+        return (
+            str(
+                uuid.UUID(
+                    value
+                )
+            )
+            == value.lower()
+        )
+    except (
+        ValueError,
+        AttributeError,
+    ):
+        return False
+
+
+def acknowledge_restart_request() -> bool:
+    """
+    Acknowledge one restart request exactly once.
+
+    The WebUI may read the worker-owned control file but does
+    not need write access to that directory.  Its ACK lives in
+    the WebUI-writable request directory.
+    """
+
+    data = _read_json_file(
+        RESTART_REQUEST_FILE
+    )
+
+    revision = str(
+        data.get(
+            "revision",
+            "",
+        )
+    ).lower()
+
+    restart_id = str(
+        data.get(
+            "restart_id",
+            "",
+        )
+    ).lower()
+
+    if (
+        data.get(
+            "action"
+        )
+        != "restart"
+        or not REV_RE.fullmatch(
+            revision
+        )
+        or not _valid_uuid(
+            restart_id
+        )
+    ):
+        return False
+
+    ack = _read_json_file(
+        RESTART_ACK_FILE
+    )
+
+    if (
+        str(
+            ack.get(
+                "restart_id",
+                "",
+            )
+        ).lower()
+        == restart_id
+    ):
+        return False
+
+    atomic_json(
+        RESTART_ACK_FILE,
+        {
+            "restart_id":
+                restart_id,
+
+            "request_id":
+                str(
+                    data.get(
+                        "request_id",
+                        "",
+                    )
+                ),
+
+            "revision":
+                revision,
+
+            "pid":
+                os.getpid(),
+
+            "acknowledged_at":
+                time.time(),
+        },
+    )
+
+    return True
+
+
 def _restart_watch_loop() -> None:
     while True:
         try:
-            data = json.loads(
-                RESTART_REQUEST_FILE
-                .read_text(
-                    encoding="utf-8",
-                )
-            )
-
-            revision = str(
-                data.get(
-                    "revision",
-                    "",
-                )
-            ).lower()
-
-            if (
-                isinstance(
-                    data,
-                    dict,
-                )
-                and data.get(
-                    "action"
-                )
-                == "restart"
-                and REV_RE.fullmatch(
-                    revision
-                )
-            ):
-                RESTART_REQUEST_FILE.unlink(
-                    missing_ok=True
-                )
-
+            if acknowledge_restart_request():
                 time.sleep(
                     0.25
                 )
@@ -263,7 +363,6 @@ def _restart_watch_loop() -> None:
                 )
 
         except (
-            FileNotFoundError,
             OSError,
             ValueError,
             TypeError,
@@ -273,7 +372,6 @@ def _restart_watch_loop() -> None:
         time.sleep(
             0.5
         )
-
 
 def start_restart_watcher() -> None:
     global _restart_thread

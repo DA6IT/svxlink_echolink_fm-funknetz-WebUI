@@ -78,6 +78,12 @@ RESTART_REQUEST_FILE = (
     / "backend-restart.json"
 )
 
+RESTART_ACK_FILE = (
+    IPC_DIR
+    / "requests"
+    / "backend-restart-ack.json"
+)
+
 JOBS_DIR = UPDATE_DATA_DIR / "jobs"
 VENV_DIR = UPDATE_DATA_DIR / "venvs"
 BACKUP_DIR = UPDATE_DATA_DIR / "backups"
