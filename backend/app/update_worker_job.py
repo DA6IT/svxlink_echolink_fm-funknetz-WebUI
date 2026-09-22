@@ -23,6 +23,7 @@ from .update_worker_common import (
 
 from .update_worker_deploy import (
     activate_venv,
+    backup_frontend,
     clear_restart_handshake,
     deploy_frontend,
     restart_backend,
@@ -95,6 +96,7 @@ def process(
     }
 
     source: Path | None = None
+    runtime: Path | None = None
     activation_started = False
     previous_venv = ""
     previous_version = ""
@@ -314,19 +316,8 @@ def process(
             exist_ok=True,
         )
 
-        shutil.rmtree(
-            frontend_backup,
-            ignore_errors=True,
-        )
-
-        shutil.copytree(
-            (
-                Path(
-                    "/var/www/new.shart"
-                )
-            ),
-            frontend_backup,
-            symlinks=True,
+        backup_frontend(
+            frontend_backup
         )
 
         atomic_json(
@@ -519,6 +510,21 @@ def process(
                 ] = str(
                     rollback_exc
                 )
+
+        if (
+            runtime is not None
+            and (
+                not activation_started
+                or job.get(
+                    "rollback_ok"
+                )
+                is True
+            )
+        ):
+            shutil.rmtree(
+                runtime,
+                ignore_errors=True,
+            )
 
         job.update(
             {

@@ -445,3 +445,126 @@ def test_worker_cleans_matching_restart_handshake(
 
     assert not control.exists()
     assert not ack.exists()
+
+
+def test_frontend_backup_drops_special_mode_bits(
+    tmp_path,
+    monkeypatch,
+):
+    import stat
+
+    from app import update_worker_deploy
+
+    source = (
+        tmp_path
+        / "live"
+    )
+
+    assets = (
+        source
+        / "assets"
+    )
+
+    assets.mkdir(
+        parents=True
+    )
+
+    (
+        source
+        / "index.html"
+    ).write_text(
+        "hello",
+        encoding="utf-8",
+    )
+
+    (
+        assets
+        / "app.js"
+    ).write_text(
+        "console.log('ok')",
+        encoding="utf-8",
+    )
+
+    assets.chmod(
+        0o2770
+    )
+
+    monkeypatch.setattr(
+        update_worker_deploy,
+        "DOCROOT",
+        source,
+    )
+
+    destination = (
+        tmp_path
+        / "backup"
+    )
+
+    update_worker_deploy.backup_frontend(
+        destination
+    )
+
+    assert (
+        destination
+        / "index.html"
+    ).read_text(
+        encoding="utf-8"
+    ) == "hello"
+
+    mode = (
+        destination
+        / "assets"
+    ).stat().st_mode
+
+    assert not (
+        mode
+        & stat.S_ISGID
+    )
+
+
+def test_frontend_backup_rejects_symlinks(
+    tmp_path,
+    monkeypatch,
+):
+    import pytest
+
+    from app import update_worker_deploy
+
+    source = (
+        tmp_path
+        / "live"
+    )
+
+    source.mkdir()
+
+    outside = (
+        tmp_path
+        / "outside"
+    )
+
+    outside.write_text(
+        "secret",
+        encoding="utf-8",
+    )
+
+    (
+        source
+        / "bad-link"
+    ).symlink_to(
+        outside
+    )
+
+    monkeypatch.setattr(
+        update_worker_deploy,
+        "DOCROOT",
+        source,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="nicht erlaubt|Nicht reguläre",
+    ):
+        update_worker_deploy.backup_frontend(
+            tmp_path
+            / "backup"
+        )

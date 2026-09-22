@@ -21,6 +21,122 @@ from .update_worker_common import (
 )
 
 
+def backup_frontend(
+    destination: Path,
+) -> None:
+    """
+    Copy only frontend content.
+
+    Do not preserve ownership, ACLs, xattrs, timestamps or
+    SUID/SGID bits from the live webroot.  The updater service
+    deliberately runs with RestrictSUIDSGID=true.
+    """
+
+    if not DOCROOT.is_dir():
+        raise RuntimeError(
+            "Frontend-DocumentRoot fehlt."
+        )
+
+    shutil.rmtree(
+        destination,
+        ignore_errors=True,
+    )
+
+    destination.mkdir(
+        parents=True,
+        mode=0o700,
+    )
+
+    for root, dirs, files in os.walk(
+        DOCROOT,
+        topdown=True,
+        followlinks=False,
+    ):
+        source_root = Path(
+            root
+        )
+
+        relative = (
+            source_root
+            .relative_to(
+                DOCROOT
+            )
+        )
+
+        target_root = (
+            destination
+            / relative
+        )
+
+        target_root.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        os.chmod(
+            target_root,
+            0o700,
+        )
+
+        for name in tuple(
+            dirs
+        ):
+            source_dir = (
+                source_root
+                / name
+            )
+
+            if source_dir.is_symlink():
+                raise RuntimeError(
+                    "Symlink im Frontend "
+                    f"nicht erlaubt: {source_dir}"
+                )
+
+            target_dir = (
+                target_root
+                / name
+            )
+
+            target_dir.mkdir(
+                exist_ok=True,
+            )
+
+            os.chmod(
+                target_dir,
+                0o700,
+            )
+
+        for name in files:
+            source_file = (
+                source_root
+                / name
+            )
+
+            if (
+                source_file.is_symlink()
+                or not source_file.is_file()
+            ):
+                raise RuntimeError(
+                    "Nicht reguläre Frontend-Datei: "
+                    f"{source_file}"
+                )
+
+            target_file = (
+                target_root
+                / name
+            )
+
+            shutil.copyfile(
+                source_file,
+                target_file,
+            )
+
+            os.chmod(
+                target_file,
+                0o600,
+            )
+
+
 def deploy_frontend(
     source: Path,
 ) -> None:
