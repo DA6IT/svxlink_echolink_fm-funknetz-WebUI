@@ -120,6 +120,18 @@ bootstrap_runtime() {
 
   chown -R "$UPDATER_USER:$UPDATER_USER" "$runtime"
 
+  # Das Runtime-Venv gehört dem Updater und bleibt für ihn schreibbar.
+  # Der WebUI-Service benötigt jedoch Read/Execute auf dem kompletten
+  # Python-Runtime-Baum, insbesondere auf nativen .so-Modulen wie
+  # pydantic_core.
+  setfacl -m "u:$WEBUI_USER:--x" "$UPDATE_DATA"
+  setfacl -m "u:$WEBUI_USER:r-x" "$UPDATE_DATA/venvs"
+  setfacl -R -m "u:$WEBUI_USER:r-X" "$runtime"
+
+  # Auch Dateien, die später innerhalb dieses Runtime-Verzeichnisses
+  # erzeugt werden, müssen für den WebUI-Service lesbar bleiben.
+  find "$runtime" -type d -exec setfacl -m     "d:u:$WEBUI_USER:r-x" {} +
+
   ln -sfn "$runtime" "$INSTALL_DIR/.venv-current.new"
   mv -Tf "$INSTALL_DIR/.venv-current.new" "$INSTALL_DIR/.venv-current"
   chown -h root:"$WEBUI_GROUP" "$INSTALL_DIR/.venv-current"
@@ -188,6 +200,11 @@ verify_bootstrap() {
   id "$UPDATER_USER" >/dev/null
   getent group "$UPDATE_GROUP" >/dev/null
   [[ -x "$INSTALL_DIR/.venv-current/bin/python" ]]
+
+  # Nicht nur als root prüfen: Der tatsächliche Serviceuser muss auch
+  # native Python-Module aus dem Runtime-Venv laden können.
+  runuser -u "$WEBUI_USER" --     "$INSTALL_DIR/.venv-current/bin/python"     -c 'import fastapi, pydantic_core'
+
   [[ -d "$INSTALL_DIR/.git" ]]
   [[ -d "$IPC_ROOT/status" && -d "$IPC_ROOT/control" && -d "$IPC_ROOT/requests" ]]
 
