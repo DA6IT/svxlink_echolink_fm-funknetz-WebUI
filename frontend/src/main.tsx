@@ -3918,19 +3918,120 @@ function App() {
                         call
                       ];
 
-                    const tg =
+                    const onlineVariant =
+                      history?.variants?.find(
+                        (variant) =>
+                          variant.online &&
+                          /^\d+$/.test(
+                            String(
+                              variant.tg ||
+                              ''
+                            )
+                          )
+                      );
+
+                    const displayTg =
                       active?.tg ||
+                      onlineVariant?.tg ||
                       history?.last_tg ||
                       history?.tg;
+
+                    const joinTg =
+                      active?.tg ||
+                      onlineVariant?.tg ||
+                      '';
+
+                    const canJoin =
+                      Boolean(
+                        (active ||
+                          onlineVariant) &&
+                        /^\d+$/.test(
+                          String(
+                            joinTg
+                          )
+                        ) &&
+                        talkgroups?.control
+                          .enabled
+                      );
+
+                    const joining =
+                      canJoin &&
+                      pendingTg ===
+                        String(joinTg);
+
+                    const joinError =
+                      canJoin &&
+                      tgControlError?.tg ===
+                        String(joinTg)
+                        ? tgControlError
+                            .message
+                        : '';
+
+                    const joinBuddy =
+                      () => {
+                        if (
+                          !canJoin ||
+                          joining
+                        ) {
+                          return;
+                        }
+
+                        void selectTalkgroup(
+                          String(joinTg)
+                        );
+                      };
 
                     return (
                       <article
                         className={`buddy-tile ${
                           active
                             ? 'is-active'
+                            : history?.online
+                            ? 'is-online'
+                            : ''
+                        } ${
+                          canJoin
+                            ? 'is-clickable'
                             : ''
                         }`}
                         key={call}
+                        role={
+                          canJoin
+                            ? 'button'
+                            : undefined
+                        }
+                        tabIndex={
+                          canJoin
+                            ? 0
+                            : undefined
+                        }
+                        title={
+                          canJoin
+                            ? `${tgLabel(
+                                joinTg
+                              )} beitreten`
+                            : undefined
+                        }
+                        onClick={
+                          canJoin
+                            ? joinBuddy
+                            : undefined
+                        }
+                        onKeyDown={
+                          canJoin
+                            ? (event) => {
+                                if (
+                                  event.key ===
+                                    'Enter' ||
+                                  event.key ===
+                                    ' '
+                                ) {
+                                  event.preventDefault();
+                                  joinBuddy();
+                                }
+                              }
+                            : undefined
+                        }
                       >
                         <div className="buddy-tile-head">
                           <strong>
@@ -3938,75 +4039,71 @@ function App() {
                           </strong>
 
                           <button
+                            type="button"
                             title="Buddy entfernen"
-                            onClick={() =>
+                            aria-label={`${call} aus der Buddy-Liste entfernen`}
+                            onClick={(event) => {
+                              event.stopPropagation();
                               removeBuddy(
                                 call
-                              )
-                            }
+                              );
+                            }}
                           >
                             ×
                           </button>
                         </div>
 
-                        {active ? (
-                          <>
+                        <div className="buddy-tile-state">
+                          {active ? (
                             <span className="buddy-live">
                               ● JETZT AKTIV
                             </span>
-
-                            <strong className="buddy-tg">
-                              {String(
-                                active.call ||
-                                call
-                              ).toUpperCase()}
-                              {' · '}
-                              {tgLabel(active.tg)}
-                            </strong>
-                          </>
-                        ) : history?.online ? (
-                          <>
+                          ) : history?.online ? (
                             <span className="buddy-online">
                               ● ONLINE
                             </span>
-
-                            <strong className="buddy-tg">
-                              {history.online_calls?.[0] ||
-                                call}
-                              {tg
-                                ? ` · ${tgLabel(tg)}`
-                                : ''}
-                            </strong>
-                          </>
-                        ) : history?.found &&
-                          history.last_seen_epoch ? (
-                          <>
+                          ) : history?.found &&
+                            history.last_seen_epoch ? (
                             <span className="buddy-last">
                               Zuletzt{' '}
                               {relativeAge(
                                 history.last_seen_epoch
                               )}
                             </span>
-
-                            <strong className="buddy-tg">
-                              {history.last_call ||
-                                call}
-                              {tg
-                                ? ` · ${tgLabel(tg)}`
-                                : ''}
-                            </strong>
-                          </>
-                        ) : (
-                          <>
+                          ) : (
                             <span className="buddy-last">
                               Noch nicht gesehen
                             </span>
+                          )}
+                        </div>
 
-                            <strong className="buddy-tg">
-                              TG —
-                            </strong>
-                          </>
-                        )}
+                        <strong className="buddy-tg">
+                          {displayTg
+                            ? tgLabel(
+                                displayTg
+                              )
+                            : 'TG —'}
+                        </strong>
+
+                        <span
+                          className={`buddy-action ${
+                            joinError
+                              ? 'is-error'
+                              : joining
+                              ? 'is-pending'
+                              : ''
+                          }`}
+                        >
+                          {joinError
+                            ? joinError
+                            : joining
+                            ? 'Wechselt…'
+                            : canJoin
+                            ? 'TG beitreten →'
+                            : history?.online
+                            ? 'Keine aktive TG'
+                            : 'Nicht verbunden'}
+                        </span>
                       </article>
                     );
                   }
