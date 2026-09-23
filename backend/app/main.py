@@ -2037,6 +2037,21 @@ async def live(websocket: WebSocket):
 
 @app.get("/health")
 def health():
+    # Nur für den isolierten Rollback-E2E-Test.
+    # Ohne diese explizite Environment-Variable verhält sich
+    # der Target-Build wie ein normaler Release.
+    rollback_test_fail = os.getenv(
+        "SVXLINK_WEBUI_ROLLBACK_TEST_FORCE_HEALTH_FAIL",
+        "false",
+    ).lower() in {"1", "true", "yes", "on"}
+
+    if rollback_test_fail:
+        return {
+            "ok": False,
+            "version": VERSION,
+            "rollback_test": True,
+        }
+
     return {"ok": True, "version": VERSION}
 
 
