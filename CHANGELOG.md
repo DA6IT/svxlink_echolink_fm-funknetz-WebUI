@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0-dev.4 — Reload stability
+
+### Behoben
+
+- Race Condition zwischen dem initialen Talkgroup-REST-Request und dem Talkgroup-WebSocket beim Browser-Reload behoben.
+- Ein früher WebSocket-Status kann keinen unvollständigen `talkgroups`-State mehr erzeugen.
+- Zugriffe auf FM-Funknetz-Livedaten sind defensiv gegen noch nicht vollständig geladenen State abgesichert.
+- Behebt die reproduzierbare weiße Seite nach Browser-Reload mit `Cannot read properties of undefined (reading 'live')`.
+
 ## 0.8.0-dev.3 — Browser updater ready
 
 ### Neu

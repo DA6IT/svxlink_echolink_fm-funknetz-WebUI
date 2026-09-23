@@ -1740,7 +1740,7 @@ function App() {
 
       for (
         const entry of
-          talkgroups.external.live || []
+          talkgroups?.external?.live ?? []
       ) {
         if (!entry.tg) {
           continue;
@@ -2371,10 +2371,26 @@ function App() {
                 message.data
               ) {
                 setTalkgroups(
-                  (current: any) => ({
-                    ...current,
-                    ...message.data,
-                  })
+                  (current: any) => {
+                    /*
+                     * Der Talkgroup-WebSocket kann beim
+                     * Browser-Reload schneller antworten
+                     * als der initiale REST-Request.
+                     *
+                     * Ohne diese Prüfung würde aus
+                     * current === null ein partielles
+                     * Talkgroups-Objekt entstehen, dem
+                     * u. a. "external" fehlt.
+                     */
+                    if (!current) {
+                      return current;
+                    }
+
+                    return {
+                      ...current,
+                      ...message.data,
+                    };
+                  }
                 );
 
                 // --- TG WS CONFIRMATION FEEDBACK ---
@@ -3100,7 +3116,7 @@ function App() {
     talkgroups.confirmed;
 
   const liveEntries =
-    talkgroups.external.live || [];
+    talkgroups?.external?.live ?? [];
 
   const activeTgCount =
     new Set(
