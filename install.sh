@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 PROJECT_NAME="SvxLink WebUI"
-INSTALLER_VERSION="1.0.0-pre4"
+INSTALLER_VERSION="1.0.0-pre5"
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_ROOT="/var/backups/svxlink-webui/${TIMESTAMP}"
@@ -254,6 +254,7 @@ TOUCH_FILES=(
   /usr/share/svxlink/events.d/local/EchoLinkWebUI.tcl
   /etc/svxlink-webui/environment
   /etc/systemd/system/svxlink-webui.service
+  /etc/systemd/system/svxlink-webui-updater.service
   /etc/systemd/system/svxlink-webui-state-collector.service
   /etc/systemd/system/svxlink-webui-state-permissions.service
   /etc/systemd/system/svxlink-webui-state-permissions.path
@@ -717,6 +718,8 @@ PACKAGES=(
   ca-certificates
   alsa-utils
   usbutils
+  acl
+  git
 )
 if [[ "$SVXLINK_FOUND" == false ]]; then
   PACKAGES+=(svxlink-server svxlink-calibration-tools)
@@ -759,15 +762,12 @@ if [[ "$(readlink -f "$SOURCE_DIR")" != "$(readlink -f "$INSTALL_DIR")" ]]; then
   rsync -a \
     --exclude '.git/' \
     --exclude '.venv/' \
+    --exclude '.venv-current' \
     --exclude 'backups/' \
     --exclude 'frontend/node_modules/' \
     --exclude 'frontend/dist/' \
     "$SOURCE_DIR/" "$INSTALL_DIR/"
 fi
-
-python3 -m venv "$INSTALL_DIR/.venv"
-"$INSTALL_DIR/.venv/bin/pip" install --upgrade pip
-"$INSTALL_DIR/.venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt"
 
 (
   cd "$INSTALL_DIR/frontend"
@@ -777,13 +777,25 @@ python3 -m venv "$INSTALL_DIR/.venv"
 )
 
 rm -rf "$DOCROOT"/*
-cp -a "$INSTALL_DIR/frontend/dist/." "$DOCROOT/"
+cp -R "$INSTALL_DIR/frontend/dist/." "$DOCROOT/"
 
-chown -R root:root "$INSTALL_DIR"
-chmod -R a+rX "$INSTALL_DIR"
 chown -R "$WEBUI_USER:$WEBUI_GROUP" /var/lib/svxlink-webui
-chown -R root:root "$DOCROOT"
-chmod -R a+rX "$DOCROOT"
+
+UPDATE_BRANCH="$(git -C "$SOURCE_DIR" branch --show-current 2>/dev/null || true)"
+UPDATE_BRANCH="${UPDATE_BRANCH:-main}"
+
+UPDATE_REMOTE="$(git -C "$SOURCE_DIR" remote get-url origin 2>/dev/null || true)"
+UPDATE_REMOTE="${UPDATE_REMOTE:-https://git.da6it.de/hermes/svxlink-webui.git}"
+
+export SOURCE_DIR
+export SVXLINK_WEBUI_UPDATE_REMOTE="$UPDATE_REMOTE"
+
+bash "$INSTALL_DIR/install/updater-bootstrap.sh" \
+  "$INSTALL_DIR" \
+  "$DOCROOT" \
+  "$WEBUI_USER" \
+  "$WEBUI_GROUP" \
+  "$UPDATE_BRANCH"
 
 # -----------------------------------------------------------------------------
 # SvxLink Konfiguration
@@ -1094,7 +1106,7 @@ After=svxlink.service
 
 [Service]
 Type=oneshot
-ExecStart=$INSTALL_DIR/.venv/bin/python $INSTALL_DIR/backend/app/state_pty_permissions.py $RAW_STATE_PTY --group svxlink-state-reader
+ExecStart=$INSTALL_DIR/.venv-current/bin/python $INSTALL_DIR/backend/app/state_pty_permissions.py $RAW_STATE_PTY --group svxlink-state-reader
 EOF
 
 cat > /etc/systemd/system/svxlink-webui-state-permissions.path <<EOF
@@ -1143,7 +1155,7 @@ Group=$WEBUI_GROUP
 SupplementaryGroups=svxlink-state-reader
 RuntimeDirectory=svxlink-webui
 RuntimeDirectoryMode=0750
-ExecStart=$INSTALL_DIR/.venv/bin/python $INSTALL_DIR/backend/app/state_pty_collector.py --input $RAW_STATE_PTY --output $NORMALIZED_STATE
+ExecStart=$INSTALL_DIR/.venv-current/bin/python $INSTALL_DIR/backend/app/state_pty_collector.py --input $RAW_STATE_PTY --output $NORMALIZED_STATE
 Restart=always
 RestartSec=2
 NoNewPrivileges=true
@@ -1183,6 +1195,13 @@ FM_FUNKNETZ_NODES_MQTT_HOST=status.thueringen.link
 FM_FUNKNETZ_NODES_MQTT_PORT=1883
 FM_FUNKNETZ_STATS_URL=https://dashboard.fm-funknetz.de/stats_api.php
 FM_FUNKNETZ_STATS_CACHE_TTL=300
+SVXLINK_WEBUI_INSTALL_DIR=$INSTALL_DIR
+SVXLINK_WEBUI_DOCROOT=$DOCROOT
+SVXLINK_WEBUI_UPDATE_DATA_DIR=/var/lib/svxlink-webui-updater
+SVXLINK_WEBUI_UPDATE_IPC_DIR=/var/lib/svxlink-webui-update
+SVXLINK_WEBUI_UPDATE_REMOTE=$UPDATE_REMOTE
+SVXLINK_WEBUI_UPDATE_BRANCH=$UPDATE_BRANCH
+SVXLINK_WEBUI_UPDATE_ENABLED=false
 EOF
 chown root:"$WEBUI_GROUP" /etc/svxlink-webui/environment
 chmod 0640 /etc/svxlink-webui/environment
@@ -1204,7 +1223,7 @@ Group=$WEBUI_GROUP
 SupplementaryGroups=svxlink-control svxlink-state-reader
 WorkingDirectory=$INSTALL_DIR/backend
 EnvironmentFile=-/etc/svxlink-webui/environment
-ExecStart=$INSTALL_DIR/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port $API_PORT
+ExecStart=$INSTALL_DIR/.venv-current/bin/uvicorn app.main:app --host 127.0.0.1 --port $API_PORT
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true
@@ -1286,10 +1305,10 @@ apache2ctl configtest
 # Syntax / Tests vor Restart
 # -----------------------------------------------------------------------------
 info "Projekt prüfen"
-"$INSTALL_DIR/.venv/bin/python" -m py_compile "$INSTALL_DIR"/backend/app/*.py
+"$INSTALL_DIR/.venv-current/bin/python" -m py_compile "$INSTALL_DIR"/backend/app/*.py
 (
   cd "$INSTALL_DIR"
-  PYTHONPATH=backend "$INSTALL_DIR/.venv/bin/python" -m pytest -q backend/tests
+  PYTHONPATH=backend "$INSTALL_DIR/.venv-current/bin/python" -m pytest -q backend/tests
 )
 
 # -----------------------------------------------------------------------------
@@ -1298,7 +1317,7 @@ info "Projekt prüfen"
 info "Dienste neu laden/starten"
 systemctl daemon-reload
 systemctl enable --now svxlink-webui-state-permissions.path svxlink-webui-control-permissions.path >/dev/null
-systemctl enable svxlink-webui-state-collector.service svxlink-webui.service >/dev/null
+systemctl enable svxlink-webui-state-collector.service svxlink-webui.service svxlink-webui-updater.service >/dev/null
 
 systemctl restart svxlink
 
@@ -1333,15 +1352,25 @@ systemctl start svxlink-webui-state-permissions.service
 systemctl start svxlink-webui-control-permissions.service
 systemctl restart svxlink-webui-state-collector.service
 systemctl restart svxlink-webui.service
+systemctl restart svxlink-webui-updater.service
 systemctl reload apache2
 
 systemctl is-active --quiet svxlink-webui-state-collector.service || die "SvxLink State-Collector ist nicht aktiv."
 systemctl is-active --quiet svxlink-webui || die "svxlink-webui ist nicht aktiv."
+systemctl is-active --quiet svxlink-webui-updater || die "svxlink-webui-updater ist nicht aktiv."
 systemctl is-active --quiet apache2 || die "Apache ist nicht aktiv."
 
 # Healthcheck
 sleep 1
 curl -fsS "http://127.0.0.1:$API_PORT/health" >/dev/null || die "Backend-Healthcheck fehlgeschlagen."
+
+runuser -u www-data -- test -r "$DOCROOT/index.html" || die "Apache/www-data kann index.html nicht lesen."
+
+for _ in {1..20}; do
+  [[ -r /var/lib/svxlink-webui-update/status/worker-status.json ]] && break
+  sleep 0.25
+done
+[[ -r /var/lib/svxlink-webui-update/status/worker-status.json ]] || die "Updater-Worker hat keinen Status erzeugt."
 
 UNAUTH_CODE="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$UI_PORT/")"
 [[ "$UNAUTH_CODE" == "401" ]] || die "WebUI ist ohne Anmeldung erreichbar (erwartet HTTP 401, erhalten: $UNAUTH_CODE)."
