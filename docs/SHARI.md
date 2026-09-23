@@ -1,33 +1,52 @@
-# SHARI-Hardware
+# SHARI
 
-## Status
+Die WebUI kann Informationen direkt aus einem angeschlossenen SHARI-/SA818-Funkmodul auslesen.
 
-Die WebUI kann das SA818/SA818S-Funkmodul direkt über UART auslesen. Der aktuelle Stand ist bewusst **read-only** und verändert keine Funkparameter.
+## Angezeigte Informationen
 
-## Ausgelesene Werte
+Je nach Hardware werden unter anderem angezeigt:
 
-Verwendete Kommandos: `AT+DMOCONNECT`, `AT+VERSION` und `AT+DMOREADGROUP`.
+- Modul
+- Firmware
+- RX-Frequenz
+- TX-Frequenz
+- Kanalraster
+- TX-CTCSS
+- RX-CTCSS
+- Squelch
+- serielle Schnittstelle
+- Verbindungsstatus
 
-Angezeigt werden Modul, Firmware, RX-/TX-Frequenz, Kanalraster, TX-/RX-CTCSS, Squelch, serieller Port und Verbindungsstatus.
+## Nur Anzeige
 
-## API
+Die SHARI-Konfiguration ist aktuell bewusst read-only.
 
-`GET /api/shari/hardware`
+Die WebUI verändert keine Frequenzen oder anderen Funkparameter.
 
-## Serielle Schnittstelle
+Damit kann ein bereits eingerichteter SHARI sicher überwacht werden, ohne seine bestehende Konfiguration zu verändern.
 
-Standard: `SHARI_SERIAL_PORT=/dev/ttyUSB0`, `SHARI_SERIAL_BAUD=9600`, `SHARI_SERIAL_TIMEOUT=0.8`.
+## Serielle Verbindung
 
-Die Werte können über `/etc/svxlink-webui/environment` überschrieben werden.
+Der Installer versucht die serielle Schnittstelle automatisch zu erkennen.
 
-## Berechtigungen
+Typische Geräte sind:
 
-Der Dienst `svxlink-webui` benötigt Zugriff auf das serielle Gerät. Empfohlen ist eine eingeschränkte Gruppe wie `svxlink-control` mit Gerätemodus `0660`. `chmod 666` ist nicht erforderlich.
+    /dev/ttyUSB0
 
-## Proxmox LXC
+oder ein Pfad unter:
 
-Bei Betrieb im LXC muss das Gerät vom Proxmox-Host in den Container durchgereicht werden, zum Beispiel mit `pct set <CTID> -dev0 path=/dev/ttyUSB0,gid=<GID>,mode=0660`.
+    /dev/serial/by-id/
 
-## Nächster Schritt
+Wenn mehrere serielle Geräte vorhanden sind, kann eine manuelle Auswahl notwendig sein.
 
-Noch nicht implementiert sind Schreibzugriffe für Frequenzen, CTCSS, Squelch, Kanalraster, Lautstärke und Filter. Vor Schreibzugriffen sollen Validierung, Vorher/Nachher-Vergleich und Fehlerbehandlung ergänzt werden.
+## Proxmox und LXC
+
+Wenn die WebUI in einem LXC-Container läuft, muss die SHARI-Hardware vom Proxmox-Host in den Container durchgereicht werden.
+
+Das betrifft je nach Aufbau:
+
+- USB-Audio
+- HID/PTT
+- serielle Schnittstelle
+
+Die Geräte müssen innerhalb des Containers sichtbar und für die benötigten Dienste zugreifbar sein.

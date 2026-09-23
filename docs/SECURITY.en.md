@@ -1,76 +1,50 @@
 # Security
 
-SvxLink WebUI is not monitoring-only. It can issue real control commands to SvxLink.
+SvxLink WebUI can perform real control actions.
+
+These include changing talkgroups and controlling EchoLink connections.
+
+Access to the WebUI should therefore be protected.
+
+## Login
+
+The installer configures a username and password for the complete WebUI by default.
+
+Access is not possible without valid credentials.
+
+## Local network
+
+On a trusted home or radio network, the WebUI can be used directly over HTTP.
+
+## Internet access
+
+Do not expose the WebUI directly to the internet without additional protection.
+
+Recommended options include:
+
+- VPN
+- firewall or IP allowlist
+- HTTPS reverse proxy
+- SSO
 
 ## Backend
 
-Reference:
+The backend itself only listens locally on the server.
 
-```text
-127.0.0.1:12346
-```
+External browsers access the WebUI and API through Apache.
 
-External access is provided through Apache.
+## Updates
 
-## Service account
+Updates are installed by a separate updater process.
 
-```text
-svxlink-webui
-```
+The WebUI process itself does not receive root or sudo privileges.
 
-The systemd service uses settings including:
+Checks are performed before an update is activated.
 
-```text
-NoNewPrivileges=true
-PrivateTmp=true
-```
+If an update fails, the previous version can be restored automatically.
 
-## No generic shell interface
+## Credentials
 
-There is no HTTP endpoint for arbitrary shell commands. Control is performed only through explicit SvxLink interfaces.
+Passwords, authentication keys, API tokens, and private keys must not be stored in Git or other public files.
 
-## PTY permissions
-
-Only the required control PTY should be writable by the service.
-
-Not recommended:
-
-```text
-chmod 666
-```
-
-## Input validation
-
-Talkgroups and EchoLink Node IDs are validated before being sent.
-
-## Authentication
-
-The application still has no built-in user management. The public installer protects the complete WebUI with Apache Basic Auth by default.
-
-The backend API listens on `127.0.0.1` only; external access is provided through the authenticated Apache reverse proxy.
-
-Additional controls such as VPN, firewall/IP allowlists or SSO may still be placed in front of the WebUI.
-
-## Browser updater
-
-Browser-based updates use multiple protection layers:
-
-- Apache Basic Auth in front of the WebUI and API
-- same-origin validation for write requests
-- an explicit CSRF guard header
-- `ProxyPreserveHost On` to preserve the original host at the backend
-- a separate rootless updater service without sudo or root privileges
-- security, backend and frontend tests before activation
-- a health check after activation
-- automatic rollback when an update fails
-
-The browser process does not execute privileged system commands. Administrative system migrations remain outside the web updater.
-
-## Secrets
-
-Never commit:
-- passwords
-- API tokens
-- authentication keys
-- SSH/TLS private keys
-- internal credentials
+Credentials entered during installation are stored locally on the system.

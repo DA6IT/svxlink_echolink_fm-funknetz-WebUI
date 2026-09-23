@@ -1,33 +1,52 @@
-# SHARI hardware
+# SHARI
 
-## Status
+The WebUI can read information directly from a connected SHARI/SA818 radio module.
 
-The WebUI can read the SA818/SA818S radio module directly over UART. The current implementation is intentionally **read-only** and does not change radio parameters.
+## Displayed information
 
-## Read values
+Depending on the hardware, the WebUI can show:
 
-Commands used: `AT+DMOCONNECT`, `AT+VERSION` and `AT+DMOREADGROUP`.
+- module type
+- firmware
+- RX frequency
+- TX frequency
+- channel spacing
+- TX CTCSS
+- RX CTCSS
+- squelch
+- serial interface
+- connection state
 
-The UI displays module type, firmware, RX/TX frequency, channel spacing, TX/RX CTCSS, squelch, serial port and connection status.
+## Read-only
 
-## API
+SHARI configuration is currently intentionally read-only.
 
-`GET /api/shari/hardware`
+The WebUI does not change frequencies or other radio settings.
 
-## Serial interface
+This makes it safe to monitor an already configured SHARI without changing its existing setup.
 
-Defaults: `SHARI_SERIAL_PORT=/dev/ttyUSB0`, `SHARI_SERIAL_BAUD=9600`, `SHARI_SERIAL_TIMEOUT=0.8`.
+## Serial connection
 
-Values can be overridden in `/etc/svxlink-webui/environment`.
+The installer tries to detect the serial interface automatically.
 
-## Permissions
+Typical devices include:
 
-The `svxlink-webui` service needs access to the serial device. A restricted group such as `svxlink-control` with device mode `0660` is recommended.
+    /dev/ttyUSB0
 
-## Proxmox LXC
+or a path under:
 
-For LXC installations the device must be passed from the Proxmox host into the container, for example with `pct set <CTID> -dev0 path=/dev/ttyUSB0,gid=<GID>,mode=0660`.
+    /dev/serial/by-id/
 
-## Next step
+If several serial devices are present, manual selection may be required.
 
-Writing frequency, CTCSS, squelch, channel spacing, volume and filter settings is not implemented yet. Validation, before/after verification and error handling will be added before write access.
+## Proxmox and LXC
+
+When the WebUI runs inside an LXC container, SHARI hardware must be passed through from the Proxmox host.
+
+Depending on the setup this may include:
+
+- USB audio
+- HID/PTT
+- serial interface
+
+The devices must be visible inside the container and accessible by the required services.

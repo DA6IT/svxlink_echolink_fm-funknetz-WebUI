@@ -1,67 +1,66 @@
 # FM-Funknetz
 
-## Live-Aktivität
+Die WebUI zeigt aktuelle Aktivitäten im FM-Funknetz und erlaubt die direkte Steuerung deiner Talkgroup.
 
-Die WebUI verarbeitet aktuelle Gesprächsaktivität über MQTT.
+## Aktuelle Talkgroup
 
-Typische Daten:
-- Talkgroup
-- Rufzeichen
-- Start/Stop
-- Server
-- Zeit
+Die aktuell verbundene Talkgroup wird direkt in der WebUI angezeigt.
+
+Eine andere Talkgroup kann per Klick ausgewählt werden.
+
+Die WebUI wartet anschließend auf die Bestätigung von SvxLink, bevor die neue Verbindung als aktiv angezeigt wird.
 
 ## Aktive Talkgroups
 
-Aktive Talkgroups erscheinen automatisch mit:
-- TG-Nummer
-- TG-Name
-- aktuellem Rufzeichen
+Aktuell genutzte Talkgroups erscheinen automatisch.
+
+Angezeigt werden unter anderem:
+
+- Talkgroup-Nummer
+- Talkgroup-Name
+- aktives Rufzeichen
 - Aktivitätsstatus
 
 ## Favoriten
 
-Talkgroups können als Favoriten gespeichert werden und bleiben auch ohne aktuelle Aktivität sichtbar.
+Häufig verwendete Talkgroups können als Favoriten gespeichert werden.
 
-## Steuerung
+Favoriten bleiben auch sichtbar, wenn dort gerade niemand spricht.
 
-Die Talkgroup-Auswahl erfolgt über den SvxLink DTMF Control PTY.
+Dadurch können wichtige Talkgroups direkt von der Startseite aus erreicht werden.
 
-Eine Talkgroup wird erst dann als lokal verbunden angezeigt, wenn SvxLink den Zustand bestätigt hat.
+## Talkgroup verlassen
 
-## Verbindung verlassen
+Eine manuell verbundene Talkgroup kann wieder verlassen werden.
 
-Die aktive Talkgroup kann verlassen werden. SvxLink fällt anschließend auf den konfigurierten Standardzustand zurück.
+SvxLink kehrt anschließend zum konfigurierten Standardzustand zurück.
 
 ## Top Talkgroups
 
-Zeiträume:
+Die WebUI zeigt häufig genutzte Talkgroups für:
 
-```text
-24 Stunden
-7 Tage
-30 Tage
-```
+- 24 Stunden
+- 7 Tage
+- 30 Tage
 
-Angezeigt werden u. a.:
-- Talkgroup
-- Talkgroup-Name
-- Anzahl Rufzeichen
-- Anzahl Durchgänge
-- Sprechzeit
+Dabei werden unter anderem Aktivität, Anzahl der Rufzeichen und Sprechzeit berücksichtigt.
 
-## Buddy/Node-Daten
+## Buddy-Liste
 
-Zusätzliche FM-Funknetz Node-Informationen können ausgewertet werden. Buddy-Suchen verwenden Basisrufzeichen, damit technische Suffixe berücksichtigt werden können.
+Rufzeichen können als Buddys gespeichert werden.
 
-## Öffentliche Beispiele
+Die WebUI zeigt:
 
-Keine zufällig beobachteten fremden Rufzeichen dauerhaft in Screenshots, README oder Demo-Daten übernehmen.
+- Online-Status
+- letzte bekannte Aktivität
+- aktuelle oder zuletzt bekannte Talkgroup
 
-Geeignete Beispiele:
+Ist ein Buddy online und eine aktuelle Talkgroup bekannt, kann diese direkt über die Buddy-Karte verbunden werden.
 
-```text
-DA6IT
-<CALLSIGN>
-<TALKGROUP>
-```
+Offline-Buddys bleiben sichtbar, sind aber nicht klickbar.
+
+## Hinweise
+
+FM-Funknetz-Daten stammen aus den verfügbaren Live- und Statusquellen des Netzes.
+
+Je nach Quelle kann eine Statusänderung mit leichter Verzögerung angezeigt werden.

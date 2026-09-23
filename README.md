@@ -1,104 +1,55 @@
 # SvxLink WebUI
 
-Eine moderne, responsive Weboberfläche für **SvxLink**, **SHARI**, **FM-Funknetz** und **EchoLink**.
+Eine moderne Weboberfläche für **SvxLink**, **SHARI**, **FM-Funknetz** und **EchoLink**.
 
-Die Anwendung kombiniert ein FastAPI-Backend mit einem React/Vite-Frontend und stellt Live-Daten, Statusinformationen und ausgewählte Steuerfunktionen im Browser bereit.
+Die WebUI bringt die wichtigsten Funktionen deines SvxLink-Systems in den Browser: aktuelle Talkgroups, Favoriten, Buddys, EchoLink-Verbindungen, SHARI-Status und Systeminformationen.
 
-> **Status:** Pre-Release / aktive Entwicklung.
-> Die WebUI läuft bereits produktiv auf einem realen SvxLink-/SHARI-System. Ein öffentlicher Pre-Release-Installer ist bereits vorhanden und wird weiter getestet.
+Die Oberfläche ist für Desktop, Tablet und Smartphone ausgelegt.
 
 [English version](README.en.md)
 
-## Schnellinstallation
-
-Auf einem Debian-/Ubuntu-basierten System kann die Installation direkt aus dem öffentlichen GitHub-Repository gestartet werden:
-
-    curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash
-
-Der Bootstrap lädt den vollständigen aktuellen `main`-Stand von GitHub in ein temporäres Verzeichnis und startet anschließend den interaktiven Installer. Nach erfolgreicher Installation verwendet die integrierte WebUI-Updatefunktion ebenfalls das öffentliche GitHub-Repository als Updatequelle.
-
-## Funktionen
-
-### Übersicht
-- responsive Oberfläche für Desktop, Tablet und Smartphone
-- Live-Status für FM-Funknetz und EchoLink
-- direkte Navigation zu den Betriebsbereichen
-- keine erfundenen Betriebsdaten im Produktionsmodus
-
-### SHARI-Hardware
-- direkte SA818/SA818S-Erkennung über UART
-- Firmware, RX/TX-Frequenz, Kanalraster, CTCSS und Squelch
-- aktueller Stand read-only
-
-Details: [docs/SHARI.md](docs/SHARI.md)
+## Was kann die WebUI?
 
 ### FM-Funknetz
-- aktuelle lokale Talkgroup
-- aktive Talkgroups in Echtzeit
-- MQTT-basierte Live-Aktivität
-- Anzeige des aktuellen Rufzeichens
-- Talkgroup-Namen
-- eigene Talkgroup-Favoriten
-- direkte Talkgroup-Auswahl über SvxLink
-- Talkgroup verlassen / Standard-TG wiederherstellen
-- Top-Talkgroups für 24 Stunden, 7 Tage und 30 Tage
-- Node- und Aktivitätsinformationen
-- Buddy-/Last-Seen-Funktionen
-- WebSocket-basierte Statusaktualisierung
 
-Details: [docs/FM-FUNKNETZ.md](docs/FM-FUNKNETZ.md)
+- aktuell verbundene Talkgroup anzeigen
+- aktive Talkgroups live verfolgen
+- Talkgroups direkt verbinden
+- Talkgroups als Favoriten speichern
+- Favoriten direkt von der Startseite aus verwenden
+- Buddy-Liste mit Online- und Last-Seen-Status
+- bei Online-Buddys direkt auf deren Talkgroup wechseln
+- Talkgroup verlassen und zur Standard-TG zurückkehren
+- Top-Talkgroups für 24 Stunden, 7 Tage und 30 Tage anzeigen
 
 ### EchoLink
-- eigenes EchoLink-Rufzeichen und eigene Node-ID
-- EchoLink Directory Status
-- EchoLink-Modul aktivieren/deaktivieren
-- aktuelle eingehende und ausgehende Verbindungen
-- Verbindungsdauer und Trennen
-- Suche nach Rufzeichen oder Node-ID
-- ONLINE / BUSY / OFFLINE
-- registrierte, aber aktuell nicht eingeloggte Nodes werden erkannt
+
+- eigenen EchoLink-Node anzeigen
+- EchoLink aktivieren und deaktivieren
+- aktuelle Verbindungen sehen
+- Verbindungen trennen
+- nach Rufzeichen oder Node-ID suchen
+- ONLINE-, BUSY- und OFFLINE-Status anzeigen
 - EchoLink-Nodes als Favoriten speichern
 - Favoriten direkt verbinden
-- Live-Status gespeicherter Nodes
-- persistente Verbindungshistorie
+- Verbindungshistorie anzeigen
 
-Details: [docs/ECHOLINK.md](docs/ECHOLINK.md)
+### SHARI und SvxLink
 
-## Architektur
+- SvxLink-Status anzeigen
+- SHARI-/SA818-Hardware auslesen
+- RX- und TX-Frequenz anzeigen
+- CTCSS, Squelch und Kanalraster anzeigen
+- Audio-, PTT- und PTY-Status prüfen
+- Systemzustand in der WebUI anzeigen
 
-```text
-Browser
-   │
-   ▼
-Apache :12345
-   │
-   ├── React/Vite Frontend
-   ├── /api/    ─────────► FastAPI/Uvicorn 127.0.0.1:12346
-   └── /api/ws/ ─────────► WebSockets
-```
+Die SHARI-Hardware wird aktuell nur ausgelesen. Funkparameter werden nicht verändert.
 
-Das Backend bindet nur an Loopback. Apache liefert das Frontend aus und übernimmt Reverse Proxy und WebSocket Proxy.
+## Schnellinstallation
 
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+Voraussetzung auf einem frischen Debian-, Ubuntu- oder Raspberry-Pi-OS-System ist `curl`.
 
-## Referenzpfade
-
-```text
-/opt/svxlink-webui              Anwendung
-/opt/svxlink-webui/backend      Backend
-/opt/svxlink-webui/frontend     Frontend
-/var/www/new.shart              aktuelles DocumentRoot
-/var/lib/svxlink-webui          persistente WebUI-Daten
-/etc/svxlink-webui/environment  Laufzeitkonfiguration
-```
-
-Diese Pfade entsprechen der aktuellen Referenzinstallation. Der spätere Installer soll Pfade soweit möglich erkennen oder konfigurierbar machen.
-
-## Installation
-
-Für die öffentliche Installation steht ein Bootstrap-Installer über GitHub zur Verfügung.
-
-Voraussetzung auf einem frischen Debian-/Ubuntu-System:
+Als root:
 
     apt update
     apt install -y curl
@@ -107,94 +58,89 @@ Danach:
 
     curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash
 
-Der eigentliche Installer installiert und prüft die weiteren benötigten Pakete selbst und führt vor der Paketinstallation ein `apt-get update` aus.
+Der Installer führt dich anschließend durch die Einrichtung.
 
-Ausführliche Anleitung: [docs/INSTALLATION.md](docs/INSTALLATION.md)
+## Was fragt der Installer?
 
-## Konfiguration
+Der Installer erkennt vorhandene Einstellungen soweit möglich und schlägt passende Werte vor.
 
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+Abgefragt werden unter anderem:
+
+- Installationspfad
+- Port der WebUI
+- optionaler Hostname
+- Benutzername und Passwort für die WebUI
+- Rufzeichen
+- FM-Funknetz-Zugangsdaten
+- Standard-Talkgroup
+- Audio- und PTT-Gerät
+- EchoLink-Daten
+- SHARI-Schnittstelle
+
+Wenn SvxLink noch nicht installiert ist, kann der Installer die benötigten Pakete ebenfalls installieren.
+
+Eine ausführliche Anleitung findest du unter:
+
+[Installation](docs/INSTALLATION.md)
+
+## Nach der Installation
+
+Am Ende zeigt der Installer die Adresse der WebUI an.
+
+Bei Port 80 zum Beispiel:
+
+    http://192.168.1.100/
+
+oder bei einem konfigurierten Hostnamen:
+
+    http://shari.example.local/
+
+Die WebUI ist mit Benutzername und Passwort geschützt.
+
+## Updates
+
+Updates können direkt in der WebUI installiert werden:
+
+    System → Updates
+
+Öffentliche Installationen verwenden GitHub `main` als Updatequelle.
+
+Ein erneuter manueller Download ist für normale Updates nicht notwendig.
 
 ## Sicherheit
 
-Die WebUI ist **nicht read-only**. Sie kann reale SvxLink-Steuerbefehle auslösen.
+Die WebUI kann echte SvxLink-Funktionen steuern.
 
-Sie sollte daher nicht ungeschützt öffentlich erreichbar sein. Empfohlen werden z. B. VPN, Firewall/IP-Allowlist, Reverse-Proxy-Authentifizierung oder SSO.
+Sie sollte deshalb nicht ungeschützt aus dem Internet erreichbar sein.
 
-Details: [docs/SECURITY.md](docs/SECURITY.md)
+Für externen Zugriff empfehlen sich zum Beispiel:
 
-## Datenschutz und öffentliche Beispiele
+- VPN
+- Firewall oder IP-Allowlist
+- Reverse Proxy mit HTTPS
+- vorgeschaltetes SSO
 
-Live-Daten dürfen im Betrieb angezeigt werden. In README, Screenshots, Demo-Daten und festen UI-Platzhaltern sollen jedoch keine zufällig beobachteten fremden Rufzeichen oder fremden EchoLink Node-IDs dauerhaft eingebaut werden.
+Mehr dazu:
 
-Geeignete statische Beispiele:
-
-```text
-DA6IT
-DA6IT-L
-DB0XYZ-R
-<CALLSIGN>
-<NODE_ID>
-<TALKGROUP>
-```
-
-Details: [docs/PRIVACY.md](docs/PRIVACY.md)
-
-## Entwicklung
-
-Backend:
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
-
-PYTHONPATH=backend .venv/bin/uvicorn app.main:app   --host 127.0.0.1   --port 12346
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run build
-npm run lint
-```
-
-## Projektstatus
-
-Bereits produktiv getestet:
-- FM-Funknetz MQTT und Live-Aktivität
-- Talkgroup-Auswahl und Favoriten
-- Top-Talkgroups
-- EchoLink Directory Status und Suche
-- EchoLink ONLINE/BUSY/OFFLINE
-- EchoLink Favoriten
-- EchoLink Connect/Disconnect
-- EchoLink History
-- FastAPI REST API und WebSockets
-- responsive Oberfläche
-
-Vor dem ersten öffentlichen Release:
-- generischen Installer fertigstellen
-- Upgrade- und Uninstall-Workflow
-- automatische SvxLink-Erkennung vervollständigen
-- Authentifizierung/Autorisierung
-- Tests auf frischen Systemen
-- öffentliche UI-Beispiele/Screenshots anonymisieren
-- Lizenz/Release-Informationen finalisieren
-
-## Bekannte Pre-Release-Einschränkungen
-
-Die EchoLink-Modulaktivierung verwendet im aktuellen Steuerpfad noch die Modul-ID `2`. Vor dem öffentlichen Release muss diese vollständig aus `ModuleEchoLink.conf` übernommen werden.
-
-Die EchoLink-Suche verwendet öffentliche EchoLink-Webquellen. Änderungen an deren HTML-Struktur können eine Anpassung des Backend-Providers erfordern.
+[Sicherheit](docs/SECURITY.md)
 
 ## Dokumentation
 
 - [Installation](docs/INSTALLATION.md)
 - [Konfiguration](docs/CONFIGURATION.md)
-- [Architektur](docs/ARCHITECTURE.md)
 - [FM-Funknetz](docs/FM-FUNKNETZ.md)
 - [EchoLink](docs/ECHOLINK.md)
+- [SHARI](docs/SHARI.md)
 - [Sicherheit](docs/SECURITY.md)
-- [Datenschutz / öffentliche Beispiele](docs/PRIVACY.md)
+- [Datenschutz](docs/PRIVACY.md)
+
+Technische Informationen für Entwickler und Administratoren:
+
+- [Architektur](docs/ARCHITECTURE.md)
+- [Changelog](CHANGELOG.md)
+
+## Projektstatus
+
+Die WebUI läuft produktiv auf einem realen SHARI-/SvxLink-System.
+
+Der öffentliche Installer wurde erfolgreich auf einem frischen System getestet.

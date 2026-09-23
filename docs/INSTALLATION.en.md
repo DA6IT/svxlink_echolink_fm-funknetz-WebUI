@@ -1,203 +1,164 @@
 # Installation
 
-## Status
+SvxLink WebUI can be installed directly from GitHub.
 
-The generic public installer is still under development. This document describes the current working reference installation.
+## Requirements
 
-## Target system
+Debian and Ubuntu based systems are currently supported, including:
 
-Currently intended for:
-- Debian or Ubuntu
-- existing SvxLink installation
-- systemd
-- Apache 2
-- Python 3 / venv
-- Node.js / npm
+- Debian
+- Ubuntu
+- Raspberry Pi OS
 
-## Directories
+Root access is required.
 
-```text
-/opt/svxlink-webui              application
-/opt/svxlink-webui/.venv        Python venv
-/var/www/new.shart              frontend deployment
-/var/lib/svxlink-webui          persistent data
-/etc/svxlink-webui/environment  configuration
-```
+On a fresh system, install `curl` first:
 
-## Hardware detection
+    apt update
+    apt install -y curl
 
-The installer does not assume Proxmox, LXC or any specific virtualization platform. Directly attached hardware is the normal installation case.
+All other required packages are installed by the installer.
 
-The installer detects or validates:
+## Start installation
 
-- ALSA sound devices for RX and TX
-- preferably a directly attached USB sound card
-- HID devices used for PTT
-- an optional serial interface for SA818/SA818S
-- SvxLink control and state PTYs after startup
+As root:
 
-Where possible, ALSA uses a stable card ID such as `plughw:CARD=Device,DEV=0` instead of relying on a numeric card index such as `plughw:0,0`.
+    curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash
 
-During upgrades an existing `AUDIO_DEV` setting is preserved. Numeric configurations such as `plughw:0,0` are only reported with a warning and are not changed automatically.
+The installer downloads the current version and guides you through the setup.
 
-The SA818/SA818S serial interface is optional. If it is unavailable, the rest of the WebUI remains operational and only the SHARI hardware view reports that serial access is unavailable.
+A manual `git clone` is not required.
 
-### Virtualization and containers
+## Setup
 
-When running inside a VM or container, the required USB, audio, HID and optional serial devices must be exposed by the virtualization platform. This is outside the normal installer path.
+Existing settings are detected where possible and offered as defaults.
 
-## Backend
+### WebUI
 
-```bash
-cd /opt/svxlink-webui
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
-```
+The installer asks for items such as:
 
-Current systemd layout:
+- installation path
+- WebUI port
+- optional hostname
+- username
+- password
 
-```ini
-[Unit]
-Description=SvxLink WebUI FastAPI backend
-After=network.target
+Port 80 is convenient for normal browser access without specifying a port.
 
-[Service]
-Type=simple
-User=svxlink-webui
-Group=svxlink-webui
-WorkingDirectory=/opt/svxlink-webui/backend
-EnvironmentFile=-/etc/svxlink-webui/environment
-ExecStart=/opt/svxlink-webui/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 12346
-Restart=on-failure
-NoNewPrivileges=true
-PrivateTmp=true
+Any other free port can also be used.
 
-[Install]
-WantedBy=multi-user.target
-```
+### Station and SvxLink
 
-## Frontend
+You may be asked for:
 
-```bash
-cd /opt/svxlink-webui/frontend
-npm install
-npm run build
-```
+- callsign
+- default talkgroup
+- locator and station details
+- audio device
+- PTT device
 
-The reference installation copies `frontend/dist/` to `/var/www/new.shart/`.
+### FM-Funknetz
 
-## Apache
+If FM-Funknetz is used, the installer asks for the required credentials and default talkgroup.
 
-Current layout:
+### EchoLink
 
-```text
-Frontend/API port: 12345
-Backend:           127.0.0.1:12346
-```
+If EchoLink is used, you can enter callsign, password, Node ID, and station information.
 
-Example:
+### SHARI
 
-```apache
-<VirtualHost *:12345>
-    DocumentRoot /var/www/new.shart
+The installer tries to detect audio, HID/PTT, and serial devices automatically.
 
-    <Directory /var/www/new.shart>
-        Require all granted
-        Options -Indexes
-    </Directory>
+If several devices are present, manual selection may be required.
 
-    <Location "/">
-        AuthType Basic
-        AuthName "SvxLink WebUI"
-        AuthBasicProvider file
-        AuthUserFile /etc/apache2/svxlink-webui.htpasswd
-        Require valid-user
-    </Location>
+## If SvxLink is not installed
 
-    ProxyPreserveHost On
+When SvxLink is not detected, the installer offers to install the required packages.
 
-    ProxyPass /api/ws/ ws://127.0.0.1:12346/api/ws/
-    ProxyPassReverse /api/ws/ ws://127.0.0.1:12346/api/ws/
+A basic configuration is then created automatically.
 
-    ProxyPass /api/ http://127.0.0.1:12346/api/
-    ProxyPassReverse /api/ http://127.0.0.1:12346/api/
-</VirtualHost>
-```
+## After installation
 
-Before reload:
+At the end of the installation the WebUI address is shown.
 
-```bash
-apache2ctl configtest
-```
+With port 80, for example:
 
-## SvxLink State PTY
+    http://192.168.1.100/
 
-Example:
+With a custom port:
 
-```ini
-STATE_PTY=/var/lib/svxlink/state/webui_state
-```
+    http://192.168.1.100:8080/
 
-## SvxLink Control PTY
+The WebUI is protected by the username and password configured during installation.
 
-Example:
+## Updates
 
-```ini
-DTMF_CTRL_PTY=/var/lib/svxlink/control/simplex_ctrl
-```
+Updates can be installed directly from:
 
-The WebUI service needs write access to the resolved PTY target. Never assume a fixed `/dev/pts/X` path because it may change after restarting SvxLink.
+    System → Updates
 
-## SvxLink health check
+Public installations use GitHub `main` as their update source.
 
-`systemctl is-active svxlink` alone is not considered a sufficient functional test. The SvxLink process can remain active even when `SimplexLogic` fails to initialize because of an audio or hardware problem.
+Normal updates do not require running the Curl installer again.
 
-The installer therefore also verifies that both `DTMF_CTRL_PTY` and `STATE_PTY` are actually created after SvxLink starts. If either is missing, installation stops and the latest SvxLink log messages are shown.
+## HTTPS
 
-## EchoLink event bridge
+The installer does not configure HTTPS certificates.
 
-Local handler:
+HTTP can be used directly on a trusted local network.
 
-```text
-/usr/share/svxlink/events.d/local/EchoLinkWebUI.tcl
-```
+For internet access, add suitable protection such as:
 
-The original `/usr/share/svxlink/events.d/EchoLink.tcl` is not modified.
+- VPN
+- HTTPS reverse proxy
+- firewall or IP allowlist
+- SSO
 
-Raw events:
+## Backup and recovery
 
-```text
-/var/lib/svxlink/echolink-webui/events.tsv
-```
+The installer creates backups before important changes.
 
-## Public installer goals
+They are stored under:
 
-The installer should:
-1. check prerequisites
-2. detect SvxLink configuration
-3. detect State/Control PTYs
-4. detect EchoLink configuration
-5. create backups
-6. create the service account
-7. install the Python environment
-8. build the frontend
-9. configure Apache and systemd
-10. safely configure PTY permissions
-11. install the EchoLink event bridge
-12. validate configuration
-13. restart services in a controlled way
-14. roll back on failure
+    /var/backups/svxlink-webui/
 
-It must not assume personal callsigns, Node IDs, hostnames, or fixed `/dev/pts/*` paths.
+If installation fails, the installer attempts to restore the previous configuration automatically.
 
-## Browser updater
+## Running the installer again
 
-The installer creates a separate `svxlink-webui-updater` account and a rootless update worker.
+The installer can be started again at any time:
 
-Browser updates are enabled by default after installation. The install request is protected by Apache Basic Auth, same-origin validation and a CSRF guard.
+    curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash
 
-The updater may modify the application checkout, its versioned Python runtimes, the frontend deployment and the dedicated update data directories. It receives no general root or sudo privileges.
+Previously detected or entered values are reused where possible.
 
-Before a new revision is activated, backend/security tests, dependency checks and the frontend build are executed. A health check follows the controlled backend restart. If activation fails, the Git revision, runtime and frontend are rolled back automatically.
+## Troubleshooting
 
-Administrative changes to Apache, systemd, `/etc`, operating-system packages or hardware permissions are intentionally outside the browser updater.
+Check the WebUI:
+
+    systemctl status svxlink-webui
+
+Check SvxLink:
+
+    systemctl status svxlink
+
+Check the updater:
+
+    systemctl status svxlink-webui-updater
+
+Check the backend:
+
+    curl -s http://127.0.0.1:12346/health
+
+WebUI logs:
+
+    journalctl -u svxlink-webui -n 100 --no-pager
+
+SvxLink logs:
+
+    journalctl -u svxlink -n 100 --no-pager
+
+More information:
+
+- [Configuration](CONFIGURATION.en.md)
+- [Security](SECURITY.en.md)

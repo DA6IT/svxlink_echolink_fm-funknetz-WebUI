@@ -1,67 +1,66 @@
 # FM-Funknetz
 
-## Live activity
+The WebUI shows current FM-Funknetz activity and allows direct control of your selected talkgroup.
 
-The WebUI processes current voice activity through MQTT.
+## Current talkgroup
 
-Typical data:
-- talkgroup
-- callsign
-- start/stop
-- server
-- timestamp
+The currently connected talkgroup is shown directly in the WebUI.
+
+Another talkgroup can be selected with a click.
+
+The WebUI waits for confirmation from SvxLink before showing the new talkgroup as connected.
 
 ## Active talkgroups
 
-Active talkgroups automatically appear with:
-- TG number
-- TG name
-- current callsign
+Currently active talkgroups appear automatically.
+
+Displayed information includes:
+
+- talkgroup number
+- talkgroup name
+- active callsign
 - activity state
 
 ## Favourites
 
-Talkgroups can be saved as favourites and remain visible even without current activity.
+Frequently used talkgroups can be saved as favourites.
 
-## Control
+Favourites remain visible even when nobody is currently speaking.
 
-Talkgroup selection is performed through the SvxLink DTMF Control PTY.
-
-A talkgroup is only shown as locally connected after SvxLink confirms the state.
+This allows quick access directly from the home page.
 
 ## Leaving a talkgroup
 
-The active talkgroup can be left. SvxLink then returns to its configured default state.
+A manually selected talkgroup can be left again.
+
+SvxLink then returns to its configured default state.
 
 ## Top Talkgroups
 
-Ranges:
+The WebUI shows popular talkgroups for:
 
-```text
-24 hours
-7 days
-30 days
-```
+- 24 hours
+- 7 days
+- 30 days
 
-Displayed data includes:
-- talkgroup
-- talkgroup name
-- callsign count
-- session count
-- voice duration
+Activity, number of callsigns, and voice time are included in the statistics.
 
-## Buddy/node data
+## Buddy list
 
-Additional FM-Funknetz node information can be evaluated. Buddy searches use base callsigns so technical suffixes can be handled.
+Callsigns can be stored as buddies.
 
-## Public examples
+The WebUI shows:
 
-Do not permanently include randomly observed third-party callsigns in screenshots, README files, or demo data.
+- online state
+- latest known activity
+- current or last known talkgroup
 
-Suitable examples:
+If a buddy is online and a current talkgroup is known, that talkgroup can be joined directly from the buddy card.
 
-```text
-DA6IT
-<CALLSIGN>
-<TALKGROUP>
-```
+Offline buddies remain visible but are not clickable.
+
+## Notes
+
+FM-Funknetz information is collected from available live and status sources.
+
+Depending on the source, state changes may appear with a short delay.

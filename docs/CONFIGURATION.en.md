@@ -1,91 +1,88 @@
 # Configuration
 
-## Environment file
+Most settings are entered during installation.
 
-Reference path:
+After a successful installation, normal operation usually does not require editing configuration files manually.
 
-```text
-/etc/svxlink-webui/environment
-```
+## WebUI
 
-Current variables:
+During installation you choose:
 
-```text
-SVXLINK_WEBUI_DEMO
-SVXLINK_CALLSIGN
-SVXLINK_CONFIG_PATH
-SVXLINK_LOCATION
-SVXLINK_LOG_PATH
-SVXLINK_NODE_INFO_PATH
-SVXLINK_NODE_NAME
-SVXLINK_PID_PATH
-SVXLINK_SERVICE_NAME
-SVXLINK_ACTIVITY_DB
+- port
+- optional hostname
+- username
+- password
 
-SVXLINK_STATE_PTY_ENABLED
-SVXLINK_STATE_PTY_PATH
-SVXLINK_STATE_PTY_RAW_PATH
+These values determine how you access the WebUI later.
 
-TG_CONTROL_ENABLED
-TG_CONTROL_PTY
+## FM-Funknetz
 
-FM_FUNKNETZ_MQTT_ENABLED
-FM_FUNKNETZ_MQTT_HOST
-FM_FUNKNETZ_MQTT_PORT
-FM_FUNKNETZ_MQTT_TOPICS
-FM_FUNKNETZ_MQTT_STALE_AFTER
+FM-Funknetz setup includes items such as:
 
-FM_FUNKNETZ_NODES_MQTT_HOST
-FM_FUNKNETZ_NODES_MQTT_PORT
+- callsign
+- credentials
+- default talkgroup
 
-FM_FUNKNETZ_STATS_URL
-FM_FUNKNETZ_STATS_CACHE_TTL
-```
-
-## Production mode
-
-```text
-SVXLINK_WEBUI_DEMO=false
-```
-
-Production systems should not display generated fake radio activity.
-
-## Control PTY
-
-Example:
-
-```text
-TG_CONTROL_PTY=/var/lib/svxlink/control/simplex_ctrl
-```
-
-Do not configure a fixed `/dev/pts/X` number.
+The currently selected talkgroup can later be changed directly from the WebUI.
 
 ## EchoLink
 
-EchoLink data is read from the existing `ModuleEchoLink.conf` and node information.
+EchoLink configuration can include:
 
-Example:
+- EchoLink callsign
+- password
+- Node ID
+- sysop name
+- location
 
-```ini
-[ModuleEchoLink]
-NAME=EchoLink
-ID=2
-CALLSIGN=DA6IT-L
-```
+Existing EchoLink settings are detected where possible.
 
-Personal values should not be hard-coded in program source.
+## Audio and PTT
 
-### Pre-release limitation
+The installer tries to detect suitable audio and PTT devices automatically.
 
-The current EchoLink control path still sends `2#` for module activation.
+If several devices are available, verify that the correct one is selected.
 
-Before public release, the module ID must be used dynamically from the detected configuration.
+## SHARI
 
-## Secrets
+The serial interface of a SHARI/SA818 module is detected automatically where possible.
 
-Never commit:
-- passwords
-- authentication keys
-- API tokens
-- private keys
-- internal credentials
+Typical devices include:
+
+    /dev/ttyUSB0
+
+or a stable path under:
+
+    /dev/serial/by-id/
+
+A `/dev/serial/by-id/` path is usually more reliable than a changing `ttyUSB` number.
+
+## Advanced settings
+
+Runtime configuration is stored in:
+
+    /etc/svxlink-webui/environment
+
+This file is mainly intended for advanced configuration.
+
+For normal operation, only change it when you know exactly which setting you need to adjust.
+
+## Everyday changes
+
+Common functions are controlled directly from the WebUI, including:
+
+- changing talkgroups
+- leaving a talkgroup
+- activating EchoLink
+- connecting or disconnecting EchoLink
+- managing favourites
+- managing buddies
+
+No manual file editing is required for these functions.
+
+## More information
+
+- [Installation](INSTALLATION.en.md)
+- [FM-Funknetz](FM-FUNKNETZ.en.md)
+- [EchoLink](ECHOLINK.en.md)
+- [SHARI](SHARI.en.md)

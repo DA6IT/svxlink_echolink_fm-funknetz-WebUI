@@ -1,66 +1,35 @@
-# Privacy and public examples
+# Privacy
 
-## Principle
+The WebUI processes information that is normally present during amateur radio operation.
 
-The WebUI processes amateur-radio live data such as callsigns, Node IDs, timestamps, and connection information.
+This may include:
 
-This data may be displayed during real operation. Static public examples should follow stricter rules.
+- callsigns
+- talkgroups
+- EchoLink Node IDs
+- activity timestamps
+- connection information
 
-## Do not permanently embed
+## Storage
 
-Avoid fixed public examples containing:
-- randomly observed third-party callsigns
-- third-party EchoLink Node IDs
-- third-party last-heard data
-- third-party connection history
-- unnecessary personal live data in screenshots
+Some of this information is stored locally to provide features such as history, last-seen information, and statistics.
 
-## Suitable examples
+The data remains on the system where the WebUI is installed.
 
-Own project/operator data may be used:
+## External services
 
-```text
-DA6IT
-DA6IT-L
-```
+Some functions use public FM-Funknetz and EchoLink services.
 
-Generic examples:
+Only the information required for the respective function is requested or exchanged.
 
-```text
-DB0XYZ-R
-YOURCALL-L
-<CALLSIGN>
-<NODE_ID>
-<TALKGROUP>
-```
+## Access to the WebUI
 
-## UI placeholders
+Anyone with access to the WebUI may also be able to see callsigns, activity history, and connection information.
 
-Do not hard-code random real third-party callsigns in source placeholders.
+The WebUI should therefore only be made available to people who are allowed to see this information.
 
-Prefer:
+## Public access
 
-```text
-Callsign or Node ID
-```
+If you make the WebUI publicly accessible, you are responsible for protecting access and the information shown.
 
-or, if an example is useful:
-
-```text
-e.g. DA6IT-L or 123456
-```
-
-## Screenshots
-
-Before publishing, check for:
-- third-party callsigns
-- third-party Node IDs
-- history/last-heard data
-- internal hostnames/IP addresses
-- credentials
-
-Anonymize unnecessary data.
-
-## Repository
-
-Live data should not be copied into tests, demo data, or documentation merely because it was visible during development.
+For normal operation, use protected access with username and password and, where appropriate, VPN, firewall rules, or a reverse proxy.

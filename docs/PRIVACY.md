@@ -1,66 +1,35 @@
-# Datenschutz und öffentliche Beispiele
+# Datenschutz
 
-## Grundsatz
+Die WebUI verarbeitet Informationen, die im Amateurfunkbetrieb ohnehin anfallen.
 
-Die WebUI verarbeitet Amateurfunk-Live-Daten wie Rufzeichen, Node-IDs, Zeitpunkte und Verbindungsinformationen.
+Dazu können gehören:
 
-Im realen Betrieb dürfen diese Daten angezeigt werden. Für statische öffentliche Beispiele gelten strengere Regeln.
+- Rufzeichen
+- Talkgroups
+- EchoLink Node-IDs
+- Zeitpunkte von Aktivitäten
+- Verbindungsinformationen
 
-## Nicht dauerhaft einbauen
+## Speicherung
 
-Nicht als feste öffentliche Beispiele verwenden:
-- zufällig beobachtete fremde Rufzeichen
-- fremde EchoLink Node-IDs
-- fremde Last-Heard-Daten
-- fremde Verbindungshistorien
-- unnötige personenbezogene Live-Daten in Screenshots
+Ein Teil dieser Daten wird lokal gespeichert, damit Funktionen wie Verlauf, Last Seen und Statistiken möglich sind.
 
-## Geeignete Beispiele
+Die Daten bleiben auf dem System, auf dem die WebUI installiert ist.
 
-Eigene Projektdaten dürfen verwendet werden:
+## Externe Dienste
 
-```text
-DA6IT
-DA6IT-L
-```
+Für einige Funktionen werden öffentliche Dienste von FM-Funknetz und EchoLink abgefragt.
 
-Generische Beispiele:
+Dabei werden die für die jeweilige Funktion benötigten Informationen übertragen oder abgerufen.
 
-```text
-DB0XYZ-R
-YOURCALL-L
-<CALLSIGN>
-<NODE_ID>
-<TALKGROUP>
-```
+## Zugriff auf die WebUI
 
-## UI-Platzhalter
+Wer Zugriff auf die WebUI hat, kann je nach Funktion auch Rufzeichen, Aktivitätsverläufe und Verbindungsinformationen sehen.
 
-Keine zufälligen realen fremden Rufzeichen im Quellcode fest eintragen.
+Deshalb sollte die WebUI nur Personen zugänglich gemacht werden, die diese Informationen sehen dürfen.
 
-Bevorzugt:
+## Öffentlicher Betrieb
 
-```text
-Rufzeichen oder Node-ID
-```
+Wenn du die WebUI öffentlich erreichbar machst, bist du selbst dafür verantwortlich, den Zugriff und die angezeigten Informationen passend abzusichern.
 
-oder, falls ein Beispiel hilfreich ist:
-
-```text
-z. B. DA6IT-L oder 123456
-```
-
-## Screenshots
-
-Vor Veröffentlichung prüfen:
-- fremde Rufzeichen?
-- fremde Node-IDs?
-- History/Last Heard?
-- interne Hostnamen/IP-Adressen?
-- Zugangsdaten?
-
-Nicht benötigte Daten anonymisieren.
-
-## Repository
-
-Live-Daten sollen nicht allein deshalb in Tests, Demo-Daten oder Dokumentation übernommen werden, weil sie während der Entwicklung sichtbar waren.
+Für normalen Betrieb empfiehlt sich ein geschützter Zugang mit Benutzername und Passwort sowie gegebenenfalls VPN, Firewall oder Reverse Proxy.

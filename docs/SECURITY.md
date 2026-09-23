@@ -1,76 +1,50 @@
 # Sicherheit
 
-SvxLink WebUI ist keine reine Monitoring-Oberfläche. Sie kann reale Steuerbefehle an SvxLink senden.
+Die SvxLink WebUI kann reale Steuerfunktionen ausführen.
+
+Dazu gehören zum Beispiel Talkgroup-Wechsel und EchoLink-Verbindungen.
+
+Deshalb sollte der Zugriff auf die WebUI geschützt werden.
+
+## Anmeldung
+
+Der Installer richtet standardmäßig einen Benutzernamen und ein Passwort für die komplette WebUI ein.
+
+Ohne gültige Zugangsdaten ist kein Zugriff möglich.
+
+## Lokales Netzwerk
+
+In einem vertrauenswürdigen Heim- oder Funknetz kann die WebUI direkt über HTTP verwendet werden.
+
+## Zugriff aus dem Internet
+
+Die WebUI sollte nicht ungeschützt direkt aus dem Internet erreichbar sein.
+
+Empfohlen werden zum Beispiel:
+
+- VPN
+- Firewall oder IP-Allowlist
+- Reverse Proxy mit HTTPS
+- vorgeschaltetes SSO
 
 ## Backend
 
-Referenz:
+Das eigentliche Backend lauscht nur lokal auf dem Server.
 
-```text
-127.0.0.1:12346
-```
+Externe Browser greifen über Apache auf die WebUI und die API zu.
 
-Der externe Zugriff erfolgt über Apache.
+## Updates
 
-## Service-Benutzer
+Updates werden von einem getrennten Updater-Prozess installiert.
 
-```text
-svxlink-webui
-```
+Der WebUI-Prozess selbst erhält dafür keine Root- oder sudo-Rechte.
 
-Der systemd-Service verwendet u. a.:
+Vor der Aktivierung eines Updates werden Prüfungen durchgeführt.
 
-```text
-NoNewPrivileges=true
-PrivateTmp=true
-```
+Schlägt ein Update fehl, kann der vorherige Stand automatisch wiederhergestellt werden.
 
-## Kein allgemeines Shell-Interface
+## Zugangsdaten
 
-Es gibt keinen HTTP-Endpunkt für beliebige Shell-Kommandos. Steuerung erfolgt ausschließlich über definierte SvxLink-Schnittstellen.
+Passwörter, Auth Keys, API-Tokens und private Schlüssel gehören nicht in Git oder andere öffentlich zugängliche Dateien.
 
-## PTY-Rechte
-
-Nur die benötigte Control-PTY soll für den Service schreibbar sein.
-
-Nicht empfohlen:
-
-```text
-chmod 666
-```
-
-## Eingabevalidierung
-
-Talkgroups und EchoLink Node-IDs werden vor dem Senden validiert.
-
-## Authentifizierung
-
-Die Anwendung besitzt weiterhin keine eigene Benutzerverwaltung. Der öffentliche Installer schützt die komplette WebUI jedoch standardmäßig mit Apache Basic Auth.
-
-Die Backend-API lauscht ausschließlich auf `127.0.0.1`; externer Zugriff erfolgt über den authentifizierten Apache-Reverse-Proxy.
-
-Zusätzliche Schutzmaßnahmen wie VPN, Firewall/IP-Allowlist oder SSO können weiterhin vorgeschaltet werden.
-
-## Browser-Updater
-
-Browserbasierte Updates verwenden mehrere Schutzebenen:
-
-- Apache Basic Auth vor WebUI und API
-- Same-Origin-Prüfung für schreibende Update-Anforderungen
-- expliziter CSRF-Guard-Header
-- `ProxyPreserveHost On`, damit der ursprüngliche Hostname am Backend erhalten bleibt
-- separater rootloser Updater-Service ohne sudo- oder Root-Rechte
-- Security-, Backend- und Frontend-Tests vor Aktivierung
-- Healthcheck nach Aktivierung
-- automatischer Rollback bei fehlgeschlagenem Update
-
-Der Browserprozess führt keine privilegierten Systemkommandos aus. Administrative Systemmigrationen bleiben außerhalb des Web-Updaters.
-
-## Secrets
-
-Nicht in Git:
-- Passwörter
-- API-Tokens
-- Auth Keys
-- SSH/TLS Private Keys
-- interne Zugangsdaten
+Die während der Installation gespeicherten Zugangsdaten werden nur lokal auf dem System abgelegt.

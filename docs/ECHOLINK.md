@@ -1,124 +1,67 @@
 # EchoLink
 
+Die WebUI integriert EchoLink direkt in die SvxLink-Oberfläche.
+
 ## Eigener Node
 
-Die WebUI zeigt:
+Angezeigt werden:
+
 - eigenes EchoLink-Rufzeichen
 - Node-ID
-- Directory-Status
-- Modulstatus
+- Online-Status
+- Status des EchoLink-Moduls
 - aktuelle Verbindungen
 
-## EchoLink-Modul
+## EchoLink aktivieren
 
-Das EchoLink-Modul kann über die WebUI aktiviert und deaktiviert werden.
-
-Aktuelle Pre-Release-Einschränkung: Die Aktivierung verwendet im Steuerpfad noch die Modul-ID `2`. Vor dem öffentlichen Release muss diese dynamisch aus `ModuleEchoLink.conf` übernommen werden.
+Das EchoLink-Modul kann direkt über die WebUI aktiviert und deaktiviert werden.
 
 ## Aktuelle Verbindungen
 
-Unterschieden werden:
-- eingehend
-- ausgehend
+Aktive Verbindungen werden mit Rufzeichen und Verbindungsdauer angezeigt.
 
-Angezeigt werden Rufzeichen und Verbindungsdauer.
+Eingehende und ausgehende Verbindungen werden unterschieden.
 
-## Directory-Suche
+Bestehende Verbindungen können direkt getrennt werden.
 
-Suche nach:
+## Suche
 
-```text
-<CALLSIGN>
-<NODE_ID>
-```
+Du kannst nach folgenden Angaben suchen:
 
-Das Backend kombiniert registrierte Node-Informationen mit den aktuell eingeloggten EchoLink-Stationen.
+- Rufzeichen
+- EchoLink Node-ID
 
-Status:
+Die WebUI zeigt anschließend, ob ein Node aktuell verfügbar ist.
 
 ### ONLINE
-Node existiert und ist aktuell angemeldet.
+
+Der Node ist aktuell angemeldet und kann verbunden werden.
 
 ### BUSY
-Node ist angemeldet, akzeptiert aber aktuell keine normale neue Verbindung.
+
+Der Node ist angemeldet, nimmt aber aktuell keine normale neue Verbindung an.
 
 ### OFFLINE
-Node ist registriert, aber aktuell nicht angemeldet.
 
-OFFLINE bedeutet nicht „Node existiert nicht“.
+Der Node ist registriert, aber momentan nicht angemeldet.
 
 ## Favoriten
 
-Gespeichert werden:
-- Anzeigename
-- Rufzeichen
-- Node-ID
+Häufig verwendete EchoLink-Nodes können als Favoriten gespeichert werden.
 
-Der aktuelle ONLINE/BUSY/OFFLINE-Status wird beim Laden ergänzt.
+Der aktuelle Status wird automatisch angezeigt.
 
-## Connect/Disconnect
+Online-Nodes können direkt aus der Favoritenliste verbunden werden.
 
-Online-Nodes können aus Suchergebnissen oder Favoriten verbunden werden. Bestehende Verbindungen können über die WebUI getrennt werden.
+## Verlauf
 
-## History
+Die WebUI speichert neue EchoLink-Verbindungen in einer Historie.
 
-Neue EchoLink-Verbindungen werden persistent erfasst:
+Angezeigt werden:
+
 - Rufzeichen
 - Richtung
-- Startzeit
-- Endzeit
+- Zeitpunkt
 - Dauer
 
-Vor Installation der Event-Erfassung nicht aufgezeichnete Verbindungen werden nicht rückwirkend erfunden.
-
-## Event Bridge
-
-Original bleibt unverändert:
-
-```text
-/usr/share/svxlink/events.d/EchoLink.tcl
-```
-
-Lokaler Handler:
-
-```text
-/usr/share/svxlink/events.d/local/EchoLinkWebUI.tcl
-```
-
-Verarbeitete Events umfassen:
-- activating_module
-- deactivating_module
-- connecting_to
-- remote_connected
-- connected
-- disconnected
-- client_list_changed
-
-Roh-Events:
-
-```text
-/var/lib/svxlink/echolink-webui/events.tsv
-```
-
-SQLite:
-
-```text
-/var/lib/svxlink-webui/echolink.sqlite3
-```
-
-## Directory Provider
-
-Die aktuelle Implementierung verwendet öffentliche EchoLink-Webquellen für Node Lookup und Current Logins. HTML-Verarbeitung ist im Backend gekapselt.
-
-## Öffentliche Beispiele
-
-Keine fremden realen Rufzeichen oder Node-IDs dauerhaft in README, Dokumentation, Screenshots, Platzhaltern oder Demo-Daten einbauen.
-
-Geeignete Beispiele:
-
-```text
-DA6IT-L
-DB0XYZ-R
-<CALLSIGN>
-<NODE_ID>
-```
+Die Historie beginnt ab dem Zeitpunkt, an dem die WebUI installiert und die Aufzeichnung aktiv ist.
