@@ -4117,6 +4117,164 @@ button {
   line-height: 1.4;
 }
 
+/* Buddy-Karten: gleiche Grundgröße wie Meine Talkgroups,
+   klickbarer Join nur bei aktuell verfügbarer TG. */
+
+.buddy-tile {
+  flex-basis: 158px;
+  min-width: 158px;
+  height: 94px;
+
+  position: relative;
+
+  padding: 9px 10px;
+
+  transition:
+    border-color .12s ease,
+    background .12s ease,
+    transform .12s ease,
+    box-shadow .12s ease;
+}
+
+.buddy-tile.is-online {
+  border-color:
+    rgba(
+      98,
+      201,
+      45,
+      .30
+    );
+}
+
+.buddy-tile.is-clickable {
+  cursor: pointer;
+}
+
+.buddy-tile.is-clickable:hover {
+  transform:
+    translateY(-1px);
+
+  border-color:
+    #b7d7d0;
+}
+
+.buddy-tile.is-clickable:focus-visible {
+  outline:
+    2px solid
+    var(--da6it-teal);
+
+  outline-offset:
+    2px;
+}
+
+.buddy-tile-state {
+  min-height: 16px;
+
+  margin-top: 5px;
+
+  display: flex;
+
+  align-items: center;
+}
+
+.buddy-live,
+.buddy-online,
+.buddy-last {
+  margin-top: 0;
+}
+
+.buddy-online {
+  color:
+    var(--da6it-green-dark);
+
+  font-size:
+    .53rem;
+
+  font-weight: 850;
+
+  letter-spacing:
+    .035em;
+}
+
+.buddy-tg {
+  min-height: 27px;
+
+  margin-top: 1px;
+
+  overflow: hidden;
+
+  color:
+    var(--da6it-ink);
+
+  font-size:
+    .66rem;
+
+  line-height:
+    1.08;
+
+  display:
+    -webkit-box;
+
+  -webkit-box-orient:
+    vertical;
+
+  -webkit-line-clamp:
+    2;
+
+  overflow-wrap:
+    anywhere;
+}
+
+.buddy-action {
+  min-width: 0;
+
+  margin-top: auto;
+
+  overflow: hidden;
+
+  color:
+    var(--da6it-muted);
+
+  font-size:
+    .52rem;
+
+  font-weight:
+    700;
+
+  line-height:
+    1.1;
+
+  white-space:
+    nowrap;
+
+  text-overflow:
+    ellipsis;
+}
+
+.buddy-tile.is-clickable
+.buddy-action {
+  color:
+    var(--da6it-teal);
+}
+
+.buddy-action.is-pending {
+  color:
+    var(--da6it-teal);
+}
+
+.buddy-action.is-error {
+  color:
+    #b5473c;
+}
+
+@media (max-width: 520px) {
+  .buddy-tile {
+    flex-basis: 145px;
+    min-width: 145px;
+    height: 94px;
+  }
+}
+
 /* Search Result */
 
 .buddy-search-result {
