@@ -1,205 +1,315 @@
 # Installation
 
-## Status
+Die SvxLink WebUI kann direkt aus dem öffentlichen GitHub-Repository installiert werden.
 
-Der öffentliche Installer steht als Pre-Release zur Verfügung. Primärer Zielbetrieb ist ein direkt installiertes Debian-/Ubuntu-System, insbesondere Raspberry Pi und vergleichbare Kleinrechner.
+Der empfohlene Weg ist der Bootstrap-Installer. Er lädt automatisch den vollständigen aktuellen `main`-Stand herunter und startet anschließend den interaktiven Installer.
 
-## Zielsystem
+## Unterstützte Systeme
 
-Aktuell vorgesehen:
-- Raspberry Pi oder vergleichbarer Kleinrechner
-- Debian oder Ubuntu
-- SHARI bzw. kompatible USB-Audio-/PTT-Hardware direkt am System
-- bestehende oder durch den Installer eingerichtete SvxLink-Installation
-- systemd
-- Apache 2
-- Python 3 / venv
-- Node.js / npm
+Der Installer ist aktuell für Debian- und Ubuntu-basierte Systeme vorgesehen.
 
-## Verzeichnisse
+Typische Einsatzsysteme sind:
 
-```text
-/opt/svxlink-webui              Anwendung
-/opt/svxlink-webui/.venv        Python venv
-/var/www/new.shart              Frontend-Deployment
-/var/lib/svxlink-webui          persistente Daten
-/etc/svxlink-webui/environment  Konfiguration
-```
+- Debian
+- Ubuntu
+- Raspberry Pi OS auf Debian-Basis
+- vergleichbare Debian-basierte Systeme
+
+Die Installation benötigt Root-Rechte.
+
+## Voraussetzungen
+
+Für den Start des Bootstrap-Installers wird lediglich `curl` benötigt.
+
+Auf einem frischen Debian-/Ubuntu-System:
+
+    apt update
+    apt install -y curl
+
+Danach kann die eigentliche Installation gestartet werden.
+
+Weitere benötigte Pakete werden vom Installer automatisch installiert.
+
+Dazu gehören unter anderem:
+
+- Apache
+- Python 3
+- Python venv und pip
+- Node.js
+- npm
+- Git
+- rsync
+- curl
+- ACL-Werkzeuge
+- ALSA-Werkzeuge
+- USB-Werkzeuge
+
+Falls SvxLink noch nicht installiert ist, kann der Installer auch die benötigten SvxLink-Pakete installieren.
+
+Der Installer führt vor der Paketinstallation selbst ein `apt-get update` aus.
+
+## Schnellinstallation
+
+Als `root`:
+
+    curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash
+
+Alternativ:
+
+    sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash'
+
+Der Bootstrap lädt den vollständigen Projektstand temporär von GitHub herunter und startet anschließend `install.sh`.
+
+Ein manuelles `git clone` ist für eine normale Installation nicht erforderlich.
+
+## Was der Bootstrap macht
+
+Der Bootstrap:
+
+1. prüft, ob er mit Root-Rechten läuft
+2. prüft die benötigten Bootstrap-Werkzeuge
+3. lädt den aktuellen `main`-Stand von GitHub als Archiv
+4. prüft das heruntergeladene Archiv
+5. entpackt das Projekt in ein temporäres Verzeichnis
+6. startet den interaktiven Installer
+7. entfernt die temporären Installationsdateien anschließend wieder
+
+Die eigentliche Installation erfolgt weiterhin durch `install.sh`.
+
+## Interaktive Konfiguration
+
+Während der Installation werden die für das jeweilige System benötigten Werte abgefragt.
+
+Dazu können gehören:
+
+- Installationspfad
+- Apache DocumentRoot
+- WebUI-Systembenutzer
+- Hostname bzw. Zugriff über IP-Adresse
+- WebUI-Port
+- interner API-Port
+- Benutzername und Passwort für die WebUI
+- SvxLink-Rufzeichen
+- FM-Funknetz-Zugangsdaten
+- Standard-Talkgroup
+- Locator und Stationsdaten
+- Audio-Gerät
+- PTT/HID-Gerät
+- EchoLink-Konfiguration
+- SHARI-UART
+
+Bereits vorhandene Werte werden soweit möglich erkannt und als Vorgabe angeboten.
+
+## WebUI-Zugriff
+
+Standardmäßig läuft die WebUI über Apache.
+
+Wenn Port 80 verwendet wird:
+
+    http://SERVER-IP/
+
+oder bei konfiguriertem Hostnamen:
+
+    http://HOSTNAME/
+
+Die WebUI ist mit Apache Basic Auth geschützt.
+
+Benutzername und Passwort werden während der Installation festgelegt.
+
+## Kein HTTPS durch den Installer
+
+Der Installer richtet aktuell bewusst kein TLS/HTTPS ein.
+
+Die WebUI läuft standardmäßig über HTTP.
+
+Falls der Zugriff über ein nicht vertrauenswürdiges Netz erfolgen soll, sollte zusätzlich eine geeignete Schutzschicht verwendet werden, zum Beispiel:
+
+- VPN
+- Reverse Proxy mit HTTPS
+- Firewall bzw. IP-Allowlist
+- vorgeschaltetes SSO
+
+## Installation von SvxLink
+
+Wenn auf dem System noch kein SvxLink erkannt wird, bietet der Installer die Installation von SvxLink an.
+
+Bei bereits vorhandenem SvxLink versucht der Installer bestehende Werte zu erkennen und weiterzuverwenden.
+
+Der Installer verändert unter anderem die für die WebUI benötigten SvxLink-Einstellungen für:
+
+- Control PTY
+- State PTY
+- FM-Funknetz
+- EchoLink
+- Audio/PTT-Anbindung
+
+Vor Änderungen werden Sicherungen erstellt.
 
 ## Hardware-Erkennung
 
-Der Installer geht nicht von Proxmox, LXC oder einer bestimmten Virtualisierung aus. Der Standardfall ist direkt angeschlossene Hardware.
+Der Installer versucht geeignete Hardware automatisch zu erkennen.
 
-Automatisch geprüft bzw. erkannt werden:
+Dazu gehören insbesondere:
 
-- ALSA-Soundkarten für RX und TX
-- bevorzugt eine direkt angeschlossene USB-Soundkarte
-- HID-Geräte für PTT
-- optional eine serielle Schnittstelle für SA818/SA818S
-- SvxLink Control- und State-PTY nach dem Start
+- ALSA-Audio-Geräte
+- HID/PTT-Geräte
+- SHARI-/SA818-UART
+- vorhandene SvxLink-Konfiguration
 
-Für ALSA wird nach Möglichkeit eine stabile Karten-ID wie `plughw:CARD=Device,DEV=0` verwendet, statt eine feste Kartennummer wie `plughw:0,0` vorauszusetzen.
+Bei mehreren oder nicht eindeutig erkennbaren Geräten kann eine manuelle Auswahl bzw. Anpassung erforderlich sein.
 
-Bei einem Upgrade wird eine bereits vorhandene `AUDIO_DEV`-Konfiguration nicht automatisch verändert. Numerische Konfigurationen wie `plughw:0,0` werden lediglich mit einem Hinweis versehen.
+## Installierte Komponenten
 
-Die serielle SA818/SA818S-Schnittstelle ist optional. Fehlt sie, bleibt die übrige WebUI vollständig nutzbar; lediglich die SHARI-Hardwareanzeige meldet die serielle Schnittstelle als nicht verfügbar.
+Typische Installationspfade:
 
-### Virtualisierung und Container
+    /opt/svxlink-webui
+    /etc/svxlink-webui
+    /var/lib/svxlink-webui
+    /var/lib/svxlink-webui-update
+    /var/lib/svxlink-webui-updater
 
-Bei Betrieb in einer VM oder einem Container müssen die benötigten USB-, Audio-, HID- und gegebenenfalls seriellen Geräte durch die jeweilige Virtualisierungsplattform bereitgestellt werden. Dies ist kein Bestandteil des normalen Installationspfads.
+Zusätzlich werden systemd-Units für die WebUI, den State-Collector und den Updater eingerichtet.
 
-## Backend
+Apache übernimmt:
 
-```bash
-cd /opt/svxlink-webui
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
-```
+- Auslieferung des Frontends
+- Reverse Proxy zum FastAPI-Backend
+- WebSocket Proxy
+- Basic Authentication
 
-Aktueller systemd-Aufbau:
+Das FastAPI-Backend bindet nur lokal auf `127.0.0.1`.
 
-```ini
-[Unit]
-Description=SvxLink WebUI FastAPI backend
-After=network.target
+## Automatische Updates über die WebUI
 
-[Service]
-Type=simple
-User=svxlink-webui
-Group=svxlink-webui
-WorkingDirectory=/opt/svxlink-webui/backend
-EnvironmentFile=-/etc/svxlink-webui/environment
-ExecStart=/opt/svxlink-webui/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 12346
-Restart=on-failure
-NoNewPrivileges=true
-PrivateTmp=true
+Eine Installation über den öffentlichen Bootstrap verwendet GitHub als Updatequelle:
 
-[Install]
-WantedBy=multi-user.target
-```
+    https://github.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI.git
 
-## Frontend
+Der Update-Kanal ist standardmäßig:
 
-```bash
-cd /opt/svxlink-webui/frontend
-npm install
-npm run build
-```
+    main
 
-`frontend/dist/` wird in der Referenzinstallation nach `/var/www/new.shart/` kopiert.
+Neue Stände können dadurch direkt in der WebUI erkannt und installiert werden.
 
-## Apache
+Der Updater läuft getrennt vom eigentlichen WebUI-Prozess und verwendet einen eingeschränkten Update-Benutzer.
 
-Aktuell:
+## Updates
 
-```text
-Frontend/API-Port: 12345
-Backend:           127.0.0.1:12346
-```
+Nach einem veröffentlichten neuen Stand muss auf dem Zielsystem normalerweise kein neuer `curl`-Installer ausgeführt werden.
 
-Beispiel:
+Updates erfolgen über:
 
-```apache
-<VirtualHost *:12345>
-    DocumentRoot /var/www/new.shart
+    WebUI -> System -> Updates
 
-    <Directory /var/www/new.shart>
-        Require all granted
-        Options -Indexes
-    </Directory>
+Der Updater prüft den konfigurierten `main`-Stand und installiert neue Versionen kontrolliert.
 
-    <Location "/">
-        AuthType Basic
-        AuthName "SvxLink WebUI"
-        AuthBasicProvider file
-        AuthUserFile /etc/apache2/svxlink-webui.htpasswd
-        Require valid-user
-    </Location>
+## Backups und Rollback
 
-    ProxyPreserveHost On
+Vor relevanten Änderungen legt der Installer Sicherungen unter folgendem Pfad an:
 
-    ProxyPass /api/ws/ ws://127.0.0.1:12346/api/ws/
-    ProxyPassReverse /api/ws/ ws://127.0.0.1:12346/api/ws/
+    /var/backups/svxlink-webui/
 
-    ProxyPass /api/ http://127.0.0.1:12346/api/
-    ProxyPassReverse /api/ http://127.0.0.1:12346/api/
-</VirtualHost>
-```
+Wenn die Installation nach Aktivierung der Änderungen fehlschlägt, versucht der Installer die zuvor gesicherten Konfigurationsdateien wiederherzustellen.
 
-Vor Reload:
+Installierte Pakete, Benutzer und Gruppen werden bei einem Rollback absichtlich nicht automatisch entfernt.
 
-```bash
-apache2ctl configtest
-```
+## Installer-Werte
 
-## SvxLink State PTY
+Die während der Installation gewählten Werte werden für spätere Installations- bzw. Upgrade-Läufe gespeichert.
 
-Beispiel:
+Datei:
 
-```ini
-STATE_PTY=/var/lib/svxlink/state/webui_state
-```
+    /root/.svxlink-webui-installer.env
 
-## SvxLink Control PTY
+Die Datei gehört `root` und wird mit Modus `0600` gespeichert.
 
-Beispiel:
+Dadurch können erkannte bzw. bereits eingegebene Werte bei späteren Installer-Läufen wieder vorgeschlagen werden.
 
-```ini
-DTMF_CTRL_PTY=/var/lib/svxlink/control/simplex_ctrl
-```
+## Wichtige Dienste
 
-Der WebUI-Service benötigt Schreibzugriff auf das tatsächliche PTY-Ziel. Keine feste `/dev/pts/X`-Nummer verwenden; sie kann sich nach einem SvxLink-Neustart ändern.
+Nach erfolgreicher Installation sollten insbesondere folgende Dienste aktiv sein:
 
-## SvxLink Healthcheck
+    systemctl status svxlink
+    systemctl status svxlink-webui
+    systemctl status svxlink-webui-updater
+    systemctl status apache2
 
-`systemctl is-active svxlink` allein gilt nicht als ausreichender Funktionstest. SvxLink kann als Prozess laufen, obwohl `SimplexLogic` wegen eines Audio- oder Hardwarefehlers nicht initialisiert wurde.
+Je nach Hardwarezustand zusätzlich:
 
-Der Installer prüft deshalb zusätzlich, ob nach dem SvxLink-Start sowohl `DTMF_CTRL_PTY` als auch `STATE_PTY` tatsächlich erzeugt wurden. Fehlen diese, wird die Installation mit den letzten SvxLink-Logmeldungen abgebrochen.
+    systemctl status svxlink-webui-state-collector
 
-## EchoLink Event Bridge
+## Schnelle Diagnose
 
-Lokaler Handler:
+Backend prüfen:
 
-```text
-/usr/share/svxlink/events.d/local/EchoLinkWebUI.tcl
-```
+    curl -s http://127.0.0.1:12346/health
 
-Die originale `/usr/share/svxlink/events.d/EchoLink.tcl` wird nicht verändert.
+WebUI über Apache prüfen:
 
-Roh-Events:
+    curl -I http://127.0.0.1/
 
-```text
-/var/lib/svxlink/echolink-webui/events.tsv
-```
+Ohne Zugangsdaten ist hier bei aktivierter Basic Authentication ein HTTP-Status `401 Unauthorized` korrekt.
 
-## Ziel des öffentlichen Installers
+SvxLink prüfen:
 
-Der Installer soll:
-1. Voraussetzungen prüfen
-2. SvxLink-Konfiguration erkennen
-3. State-/Control-PTY erkennen
-4. EchoLink-Konfiguration erkennen
-5. Backups erstellen
-6. Service-Benutzer einrichten
-7. Python-Umgebung installieren
-8. Frontend bauen
-9. Apache und systemd konfigurieren
-10. PTY-Berechtigungen sicher setzen
-11. EchoLink Event Bridge installieren
-12. Konfiguration testen
-13. Dienste kontrolliert neu starten
-14. bei Fehlern zurückrollen
+    systemctl --no-pager --full status svxlink
 
-Keine persönlichen Rufzeichen, Node-IDs, Hostnamen oder festen `/dev/pts/*`-Pfade voraussetzen.
+WebUI prüfen:
 
-## Browser-Updater
+    systemctl --no-pager --full status svxlink-webui
 
-Der Installer richtet einen separaten Benutzer `svxlink-webui-updater` und einen rootlosen Update-Worker ein.
+Updater prüfen:
 
-Browser-Updates sind nach der Installation standardmäßig aktiviert. Der Installationsrequest ist durch Apache Basic Auth, Same-Origin-Prüfung und einen CSRF-Guard geschützt.
+    systemctl --no-pager --full status svxlink-webui-updater
 
-Der Updater darf den Anwendungscode, seine versionierten Python-Runtimes, das Frontend-Deployment und die vorgesehenen Update-Datenverzeichnisse ändern. Er erhält keine allgemeinen Root- oder sudo-Rechte.
+## Logs
 
-Vor der Aktivierung einer neuen Revision werden Backend-/Security-Tests, Dependency-Prüfungen und der Frontend-Build ausgeführt. Nach dem kontrollierten Backend-Neustart folgt ein Healthcheck. Schlägt die Aktivierung fehl, werden Git-Stand, Runtime und Frontend automatisch zurückgerollt.
+WebUI:
 
-Administrative Änderungen an Apache, systemd, `/etc`, Betriebssystempaketen oder Hardwareberechtigungen werden bewusst nicht über den Browser-Updater durchgeführt.
+    journalctl -u svxlink-webui -n 100 --no-pager
+
+Updater:
+
+    journalctl -u svxlink-webui-updater -n 100 --no-pager
+
+State Collector:
+
+    journalctl -u svxlink-webui-state-collector -n 100 --no-pager
+
+SvxLink:
+
+    journalctl -u svxlink -n 100 --no-pager
+
+Apache:
+
+    tail -100 /var/log/apache2/svxlink-webui-error.log
+
+## Neuinstallation / erneuter Installer-Lauf
+
+Der Bootstrap kann grundsätzlich erneut gestartet werden:
+
+    curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash
+
+Für reguläre Updates sollte jedoch die integrierte Updatefunktion der WebUI verwendet werden.
+
+## Entwicklung vs. öffentliche Installation
+
+Der Entwicklungsworkflow des Projekts ist getrennt von der öffentlichen Installation.
+
+Öffentliche Systeme beziehen Installation und Updates aus GitHub.
+
+Der Entwicklungsstand wird zunächst im führenden Entwicklungsrepository gepflegt und anschließend nach GitHub gespiegelt.
+
+Dadurch benötigt ein öffentlich installiertes System keinen Zugriff auf interne Entwicklungsinfrastruktur.
+
+## Sicherheitshinweis
+
+Die WebUI kann reale SvxLink-Funktionen steuern und ist daher keine reine Statusseite.
+
+Sie sollte nicht ohne Schutz öffentlich ins Internet gestellt werden.
+
+Weitere Informationen:
+
+- [SECURITY.md](SECURITY.md)
+- [CONFIGURATION.md](CONFIGURATION.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)

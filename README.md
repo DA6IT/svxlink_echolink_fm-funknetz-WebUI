@@ -96,9 +96,20 @@ Diese Pfade entsprechen der aktuellen Referenzinstallation. Der spätere Install
 
 ## Installation
 
-Der generische öffentliche Installer ist noch nicht fertig.
+Für die öffentliche Installation steht ein Bootstrap-Installer über GitHub zur Verfügung.
 
-Aktueller Aufbau: [docs/INSTALLATION.md](docs/INSTALLATION.md)
+Voraussetzung auf einem frischen Debian-/Ubuntu-System:
+
+    apt update
+    apt install -y curl
+
+Danach:
+
+    curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash
+
+Der eigentliche Installer installiert und prüft die weiteren benötigten Pakete selbst und führt vor der Paketinstallation ein `apt-get update` aus.
+
+Ausführliche Anleitung: [docs/INSTALLATION.md](docs/INSTALLATION.md)
 
 ## Konfiguration
 
