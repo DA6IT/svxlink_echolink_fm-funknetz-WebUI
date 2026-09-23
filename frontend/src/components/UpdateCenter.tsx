@@ -189,6 +189,11 @@ export default function UpdateCenter({
             {
               method:
                 'POST',
+
+              headers: {
+                'X-SvxLink-CSRF':
+                  '1',
+              },
             }
           );
 

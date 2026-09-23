@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.0-dev.2 — Browser updater security
+
+### Sicherheit
+
+- Same-Origin-Prüfung für das Starten eines Browser-Updates.
+- Schreibender Update-Request benötigt zusätzlich einen expliziten CSRF-Guard-Header.
+- Browser-Updater bleibt bis zum Abschluss der Auth-/Security-Tests administrativ deaktiviert.
+
+### Entwicklung
+
+- Security-Hardening erfolgt getrennt auf `feature/browser-updater-security`.
+
+
 ## 0.8.0-dev.1 — Rootless updater validation
 
 - Vollständiger rootloser Updatepfad live validiert.

@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from .activity_store import ActivityStore
@@ -27,6 +27,9 @@ from .fm_stats import FMStatsDirectory
 from .fm_tg_names import FMTalkgroupNames
 from .shari_radio import read_shari_hardware
 from .system_health import system_health
+from .request_security import (
+    require_same_origin_write,
+)
 from .updater import (
     request_update,
     start_restart_watcher,
@@ -773,7 +776,13 @@ def system_update_status():
 
 
 @app.post("/api/system/update/install")
-def system_update_install():
+def system_update_install(
+    request: Request,
+):
+    require_same_origin_write(
+        request
+    )
+
     try:
         return request_update(
             "install"
