@@ -47,7 +47,17 @@ ok "privilege separation and ACLs"
 check systemctl is-active --quiet svxlink-webui
 check systemctl is-active --quiet svxlink-webui-updater
 check systemctl is-active --quiet apache2
-ok "services active"
+ok "core services active"
+
+CONTROL_PTY="/var/lib/svxlink/control/simplex_ctrl"
+RAW_STATE_PTY="/var/lib/svxlink/state/webui_state"
+
+if [[ -e "$CONTROL_PTY" && -e "$RAW_STATE_PTY" ]]; then
+  check systemctl is-active --quiet svxlink-webui-state-collector
+  ok "SvxLink hardware PTYs and state collector active"
+else
+  printf 'WARN SvxLink hardware PTYs not present; state collector check skipped\n'
+fi
 
 curl -fsS "http://127.0.0.1:$API_PORT/health" >/dev/null \
   || fail "backend health failed"

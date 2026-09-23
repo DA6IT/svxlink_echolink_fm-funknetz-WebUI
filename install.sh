@@ -262,6 +262,7 @@ TOUCH_FILES=(
   /etc/systemd/system/svxlink-webui-control-permissions.path
   /usr/local/libexec/svxlink-webui-control-permissions
   /etc/apache2/sites-available/svxlink-webui.conf
+  /etc/apache2/sites-enabled/000-aaa-svxlink-webui.conf
   /etc/apache2/conf-available/svxlink-webui-port.conf
   /etc/apache2/svxlink-webui.htpasswd
 )
@@ -316,8 +317,26 @@ rollback() {
       fi
     fi
     apache2ctl configtest >/dev/null 2>&1 && systemctl reload apache2 || true
+
     systemctl restart svxlink >/dev/null 2>&1 || true
-    systemctl restart svxlink-webui >/dev/null 2>&1 || true
+
+    WEBUI_UNIT_KEY="etc__systemd__system__svxlink-webui.service"
+    UPDATER_UNIT_KEY="etc__systemd__system__svxlink-webui-updater.service"
+
+    if [[ -f "$BACKUP_ROOT/files/${WEBUI_UNIT_KEY}.missing" ]]; then
+      systemctl stop svxlink-webui >/dev/null 2>&1 || true
+    else
+      systemctl restart svxlink-webui >/dev/null 2>&1 || true
+    fi
+
+    if [[ -f "$BACKUP_ROOT/files/${UPDATER_UNIT_KEY}.missing" ]]; then
+      systemctl stop svxlink-webui-updater >/dev/null 2>&1 || true
+    else
+      systemctl restart svxlink-webui-updater >/dev/null 2>&1 || true
+    fi
+
+    systemctl daemon-reload >/dev/null 2>&1 || true
+
     warn "Rollback ausgeführt. Installierte Pakete/Benutzer/Gruppen werden absichtlich nicht entfernt."
     warn "Backup: $BACKUP_ROOT"
   fi
@@ -516,6 +535,27 @@ fi
 echo
 
 # -----------------------------------------------------------------------------
+# Gespeicherte Installer-Werte
+# -----------------------------------------------------------------------------
+INSTALLER_STATE_FILE="/root/.svxlink-webui-installer.env"
+INSTALLER_STATE_LOADED=false
+
+if [[ -f "$INSTALLER_STATE_FILE" ]]; then
+  STATE_OWNER="$(stat -c '%u' "$INSTALLER_STATE_FILE" 2>/dev/null || echo -1)"
+  STATE_MODE="$(stat -c '%a' "$INSTALLER_STATE_FILE" 2>/dev/null || echo '')"
+
+  if [[ "$STATE_OWNER" == "0" && "$STATE_MODE" == "600" ]]; then
+    # shellcheck disable=SC1090
+    source "$INSTALLER_STATE_FILE"
+    INSTALLER_STATE_LOADED=true
+    ok "Gespeicherte Installer-Werte aus $INSTALLER_STATE_FILE geladen."
+  else
+    warn "$INSTALLER_STATE_FILE wird aus Sicherheitsgründen nicht geladen."
+    warn "Erwartet: Besitzer root und Modus 600."
+  fi
+fi
+
+# -----------------------------------------------------------------------------
 # Frage-/Antwort-Dialog
 # -----------------------------------------------------------------------------
 FULL_SVXLINK_INSTALL=false
@@ -528,36 +568,50 @@ if [[ "$SVXLINK_FOUND" == false ]]; then
   fi
 fi
 
-INSTALL_DIR="$(ask 'Installationspfad der WebUI' '/opt/svxlink-webui')"
-DOCROOT="$(ask 'Apache DocumentRoot' '/var/www/svxlink-webui')"
-WEBUI_USER="$(ask 'Systembenutzer für die WebUI' "$CURRENT_WEBUI_USER")"
+INSTALL_DIR="$(ask 'Installationspfad der WebUI' "${SAVED_INSTALL_DIR:-/opt/svxlink-webui}")"
+DOCROOT="$(ask 'Apache DocumentRoot' "${SAVED_DOCROOT:-/var/www/svxlink-webui}")"
+WEBUI_USER="$(ask 'Systembenutzer für die WebUI' "${SAVED_WEBUI_USER:-$CURRENT_WEBUI_USER}")"
 [[ "$WEBUI_USER" != "root" ]] || die "Die WebUI darf nicht als root laufen."
 [[ "$WEBUI_USER" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]] || die "Ungültiger Linux-Benutzername: $WEBUI_USER"
 
-WEB_HOSTNAME="$(ask 'Hostname für Apache (leer = Zugriff per IP)' "$CURRENT_HOSTNAME")"
+WEB_HOSTNAME="$(ask 'Hostname für Apache (leer = Zugriff per IP)' "${SAVED_WEB_HOSTNAME:-$CURRENT_HOSTNAME}")"
 if [[ -n "$WEB_HOSTNAME" && ! "$WEB_HOSTNAME" =~ ^[A-Za-z0-9.-]+$ ]]; then
   die "Ungültiger Hostname: $WEB_HOSTNAME"
 fi
-UI_PORT="$(ask_port 'Port für die WebUI' "$CURRENT_UI_PORT")"
-API_PORT="$(ask_port 'Interner Port für die API' "$CURRENT_API_PORT")"
+UI_PORT="$(ask_port 'Port für die WebUI' "${SAVED_UI_PORT:-$CURRENT_UI_PORT}")"
+API_PORT="$(ask_port 'Interner Port für die API' "${SAVED_API_PORT:-$CURRENT_API_PORT}")"
 [[ "$UI_PORT" != "$API_PORT" ]] || die "UI-Port und API-Port dürfen nicht identisch sein."
 
-WEB_AUTH_USER="$(ask_web_username 'Login-Benutzer für die WebUI' "$CURRENT_WEB_AUTH_USER")"
-WEB_AUTH_PASSWORD="$(ask_web_password)"
+WEB_AUTH_USER="$(ask_web_username 'Login-Benutzer für die WebUI' "${SAVED_WEB_AUTH_USER:-$CURRENT_WEB_AUTH_USER}")"
 
-if [[ -n "${CURRENT_CALLSIGN:-${CURRENT_FM_CALL:-}}" ]]; then
+if [[ -n "${SAVED_WEB_AUTH_PASSWORD:-}" ]]; then
+  WEB_AUTH_PASSWORD="$SAVED_WEB_AUTH_PASSWORD"
+  ok "Gespeichertes WebUI-Passwort wird wiederverwendet."
+else
+  WEB_AUTH_PASSWORD="$(ask_web_password)"
+fi
+
+if [[ -n "${SAVED_BASE_CALL:-}" ]]; then
+  BASE_CALL="$(ask_callsign 'Lokales SvxLink-/Hotspot-Rufzeichen' "$SAVED_BASE_CALL")"
+elif [[ -n "${CURRENT_CALLSIGN:-${CURRENT_FM_CALL:-}}" ]]; then
   BASE_CALL="$(ask_callsign 'Lokales SvxLink-/Hotspot-Rufzeichen' "${CURRENT_CALLSIGN:-$CURRENT_FM_CALL}")"
 else
   BASE_CALL="$(ask_callsign 'Lokales SvxLink-/Hotspot-Rufzeichen')"
 fi
 
-if [[ -n "$CURRENT_CONTROL_PTY" ]]; then
+STATION_CALLSIGN="$(ask_callsign   'Basisrufzeichen für WebUI (ohne Dienst-Suffix)'   "${SAVED_STATION_CALLSIGN:-$BASE_CALL}")"
+
+if [[ -n "${SAVED_CONTROL_PTY:-}" ]]; then
+  CONTROL_PTY="$(ask 'SvxLink DTMF Control PTY' "$SAVED_CONTROL_PTY")"
+elif [[ -n "$CURRENT_CONTROL_PTY" ]]; then
   CONTROL_PTY="$(ask 'SvxLink DTMF Control PTY' "$CURRENT_CONTROL_PTY")"
 else
   CONTROL_PTY="$(ask 'SvxLink DTMF Control PTY' '/var/lib/svxlink/control/simplex_ctrl')"
 fi
 
-if [[ -n "$CURRENT_STATE_PTY" ]]; then
+if [[ -n "${SAVED_RAW_STATE_PTY:-}" ]]; then
+  RAW_STATE_PTY="$(ask 'SvxLink State PTY' "$SAVED_RAW_STATE_PTY")"
+elif [[ -n "$CURRENT_STATE_PTY" ]]; then
   RAW_STATE_PTY="$(ask 'SvxLink State PTY' "$CURRENT_STATE_PTY")"
 else
   RAW_STATE_PTY="$(ask 'SvxLink State PTY' '/var/lib/svxlink/state/webui_state')"
@@ -572,23 +626,26 @@ else
 fi
 [[ "$FULL_SVXLINK_INSTALL" == true ]] && CONFIGURE_FM=true
 
-FM_CALL="${CURRENT_FM_CALL:-$BASE_CALL}"
-FM_AUTH="$CURRENT_FM_AUTH"
-DEFAULT_TG="${CURRENT_DEFAULT_TG:-0}"
-LOCATOR="${CURRENT_LOCATOR:-}"
-FREQUENCY="${CURRENT_FREQ:-}"
-TX_POWER="${CURRENT_TX_POWER:-1}"
-ANTENNA="${CURRENT_ANTENNA:-SHARI Hotspot}"
-AUDIO_DEV="$AUTO_AUDIO_DEV"
-PTT_TYPE="${CURRENT_PTT_TYPE:-Hidraw}"
-HID_DEVICE="$AUTO_HID"
-HID_PIN="${CURRENT_HID_PIN:-GPIO3}"
+FM_CALL="${SAVED_FM_CALL:-${CURRENT_FM_CALL:-$BASE_CALL}}"
+FM_AUTH="${SAVED_FM_AUTH:-$CURRENT_FM_AUTH}"
+DEFAULT_TG="${SAVED_DEFAULT_TG:-${CURRENT_DEFAULT_TG:-0}}"
+LOCATOR="${SAVED_LOCATOR:-${CURRENT_LOCATOR:-}}"
+FREQUENCY="${SAVED_FREQUENCY:-${CURRENT_FREQ:-}}"
+TX_POWER="${SAVED_TX_POWER:-${CURRENT_TX_POWER:-1}}"
+ANTENNA="${SAVED_ANTENNA:-${CURRENT_ANTENNA:-SHARI Hotspot}}"
+AUDIO_DEV="${SAVED_AUDIO_DEV:-$AUTO_AUDIO_DEV}"
+PTT_TYPE="${SAVED_PTT_TYPE:-${CURRENT_PTT_TYPE:-Hidraw}}"
+HID_DEVICE="${SAVED_HID_DEVICE:-$AUTO_HID}"
+HID_PIN="${SAVED_HID_PIN:-${CURRENT_HID_PIN:-GPIO3}}"
 
 if [[ "$CONFIGURE_FM" == true ]]; then
   echo
   say "${C_BOLD}FM-Funknetz${C_RESET}"
   FM_CALL="$(ask_callsign 'FM-Funknetz Rufzeichen/Node-Call' "$FM_CALL")"
-  if [[ -n "$CURRENT_FM_AUTH" ]]; then
+  if [[ -n "${SAVED_FM_AUTH:-}" ]]; then
+    FM_AUTH="$SAVED_FM_AUTH"
+    ok "Gespeicherter FM-Funknetz AUTH_KEY wird wiederverwendet."
+  elif [[ -n "$CURRENT_FM_AUTH" ]]; then
     NEW_SECRET="$(ask_secret 'FM-Funknetz AUTH_KEY' true)"
     [[ -n "$NEW_SECRET" ]] && FM_AUTH="$NEW_SECRET"
   else
@@ -622,18 +679,21 @@ else
 fi
 [[ "$FULL_SVXLINK_INSTALL" == true ]] && CONFIGURE_ECHO=true
 
-ECHO_CALL="${CURRENT_ECHO_CALL:-$BASE_CALL}"
-ECHO_PASS="$CURRENT_ECHO_PASS"
-ECHO_MODULE_ID="${CURRENT_ECHO_ID:-2}"
-ECHO_NODE_ID="$CURRENT_ECHO_NODE_ID"
-SYSOP_NAME="$CURRENT_SYSOP"
-ECHO_LOCATION="${CURRENT_ECHO_LOCATION:-${LOCATOR:-}}"
+ECHO_CALL="${SAVED_ECHO_CALL:-${CURRENT_ECHO_CALL:-$BASE_CALL}}"
+ECHO_PASS="${SAVED_ECHO_PASS:-$CURRENT_ECHO_PASS}"
+ECHO_MODULE_ID="${SAVED_ECHO_MODULE_ID:-${CURRENT_ECHO_ID:-2}}"
+ECHO_NODE_ID="${SAVED_ECHO_NODE_ID:-$CURRENT_ECHO_NODE_ID}"
+SYSOP_NAME="${SAVED_SYSOP_NAME:-$CURRENT_SYSOP}"
+ECHO_LOCATION="${SAVED_ECHO_LOCATION:-${CURRENT_ECHO_LOCATION:-${LOCATOR:-}}}"
 
 if [[ "$CONFIGURE_ECHO" == true ]]; then
   echo
   say "${C_BOLD}EchoLink${C_RESET}"
   ECHO_CALL="$(ask_callsign 'EchoLink Rufzeichen' "$ECHO_CALL")"
-  if [[ -n "$CURRENT_ECHO_PASS" ]]; then
+  if [[ -n "${SAVED_ECHO_PASS:-}" ]]; then
+    ECHO_PASS="$SAVED_ECHO_PASS"
+    ok "Gespeichertes EchoLink-Passwort wird wiederverwendet."
+  elif [[ -n "$CURRENT_ECHO_PASS" ]]; then
     NEW_SECRET="$(ask_secret 'EchoLink Passwort' true)"
     [[ -n "$NEW_SECRET" ]] && ECHO_PASS="$NEW_SECRET"
   else
@@ -677,12 +737,63 @@ say "API Port:                  $API_PORT"
 say "WebUI Login:               $WEB_AUTH_USER (Apache Basic Auth)"
 say "Control PTY:               $CONTROL_PTY"
 say "State PTY:                 $RAW_STATE_PTY"
-say "SvxLink Call:              $BASE_CALL"
+say "Basisrufzeichen WebUI:      $STATION_CALLSIGN"
+say "SvxLink/FM Call:            $BASE_CALL"
 [[ "$CONFIGURE_FM" == true ]] && say "FM Call / Default TG:       $FM_CALL / $DEFAULT_TG"
 [[ "$CONFIGURE_ECHO" == true ]] && say "EchoLink Call / Modul:      $ECHO_CALL / $ECHO_MODULE_ID"
 say "Passwörter/Keys:           werden nicht angezeigt"
 echo
 ask_yes_no "Änderungen jetzt anwenden?" y || { echo "Abgebrochen."; exit 0; }
+
+info "Installer-Werte für weitere Läufe speichern"
+
+STATE_TMP="${INSTALLER_STATE_FILE}.tmp"
+umask 077
+
+{
+  printf '# SvxLink WebUI installer state\n'
+  printf '# Automatisch erzeugt. Enthält Zugangsdaten - nicht weitergeben.\n'
+
+  printf 'SAVED_INSTALL_DIR=%q\n' "$INSTALL_DIR"
+  printf 'SAVED_DOCROOT=%q\n' "$DOCROOT"
+  printf 'SAVED_WEBUI_USER=%q\n' "$WEBUI_USER"
+  printf 'SAVED_WEB_HOSTNAME=%q\n' "$WEB_HOSTNAME"
+  printf 'SAVED_UI_PORT=%q\n' "$UI_PORT"
+  printf 'SAVED_API_PORT=%q\n' "$API_PORT"
+
+  printf 'SAVED_WEB_AUTH_USER=%q\n' "$WEB_AUTH_USER"
+  printf 'SAVED_WEB_AUTH_PASSWORD=%q\n' "$WEB_AUTH_PASSWORD"
+
+  printf 'SAVED_BASE_CALL=%q\n' "$BASE_CALL"
+  printf 'SAVED_STATION_CALLSIGN=%q\n' "$STATION_CALLSIGN"
+  printf 'SAVED_CONTROL_PTY=%q\n' "$CONTROL_PTY"
+  printf 'SAVED_RAW_STATE_PTY=%q\n' "$RAW_STATE_PTY"
+
+  printf 'SAVED_FM_CALL=%q\n' "$FM_CALL"
+  printf 'SAVED_FM_AUTH=%q\n' "$FM_AUTH"
+  printf 'SAVED_DEFAULT_TG=%q\n' "$DEFAULT_TG"
+  printf 'SAVED_LOCATOR=%q\n' "$LOCATOR"
+  printf 'SAVED_FREQUENCY=%q\n' "$FREQUENCY"
+  printf 'SAVED_TX_POWER=%q\n' "$TX_POWER"
+  printf 'SAVED_ANTENNA=%q\n' "$ANTENNA"
+  printf 'SAVED_AUDIO_DEV=%q\n' "$AUDIO_DEV"
+  printf 'SAVED_PTT_TYPE=%q\n' "$PTT_TYPE"
+  printf 'SAVED_HID_DEVICE=%q\n' "$HID_DEVICE"
+  printf 'SAVED_HID_PIN=%q\n' "$HID_PIN"
+
+  printf 'SAVED_ECHO_CALL=%q\n' "$ECHO_CALL"
+  printf 'SAVED_ECHO_PASS=%q\n' "$ECHO_PASS"
+  printf 'SAVED_ECHO_MODULE_ID=%q\n' "$ECHO_MODULE_ID"
+  printf 'SAVED_ECHO_NODE_ID=%q\n' "$ECHO_NODE_ID"
+  printf 'SAVED_SYSOP_NAME=%q\n' "$SYSOP_NAME"
+  printf 'SAVED_ECHO_LOCATION=%q\n' "$ECHO_LOCATION"
+} > "$STATE_TMP"
+
+chown root:root "$STATE_TMP"
+chmod 0600 "$STATE_TMP"
+mv -f "$STATE_TMP" "$INSTALLER_STATE_FILE"
+
+ok "Installer-Werte gespeichert: $INSTALLER_STATE_FILE"
 
 # -----------------------------------------------------------------------------
 # Ab hier Änderungen; Backup scharf schalten
@@ -800,7 +911,15 @@ bash "$INSTALL_DIR/install/updater-bootstrap.sh" \
 # -----------------------------------------------------------------------------
 # SvxLink Konfiguration
 # -----------------------------------------------------------------------------
-mkdir -p /etc/svxlink/svxlink.d /var/lib/svxlink/control /var/lib/svxlink/state
+mkdir -p /etc/svxlink/svxlink.d
+
+# SvxLink itself creates the PTY symlinks in these directories.
+# On a fresh installation they therefore must be writable by the
+# unprivileged svxlink service user.
+SVXLINK_RUNTIME_USER="svxlink"
+SVXLINK_RUNTIME_GROUP="$(id -gn "$SVXLINK_RUNTIME_USER")"
+
+install -d -m 0750   -o "$SVXLINK_RUNTIME_USER"   -g "$SVXLINK_RUNTIME_GROUP"   /var/lib/svxlink/control   /var/lib/svxlink/state
 
 if [[ "$FULL_SVXLINK_INSTALL" == true || ! -s "$SVXLINK_CONFIG" ]]; then
   info "Neue SvxLink-Grundkonfiguration erzeugen"
@@ -948,6 +1067,14 @@ if [[ "$CONFIGURE_ECHO" == true ]]; then
   ini_set "$ECHOLINK_CONFIG" ModuleEchoLink MAX_QSOS 10
   ini_set "$ECHOLINK_CONFIG" ModuleEchoLink MAX_CONNECTIONS 11
   ini_set "$ECHOLINK_CONFIG" ModuleEchoLink LINK_IDLE_TIMEOUT 1800
+fi
+
+# ReflectorLogic erwartet eine lesbare, gültige node_info.json.
+# Auf einer frischen Installation muss sie auch ohne EchoLink Node-ID existieren.
+if [[ ! -f "$NODE_INFO" ]]; then
+  info "Leere node_info.json für ReflectorLogic anlegen"
+  mkdir -p "$(dirname "$NODE_INFO")"
+  printf '{}\n' > "$NODE_INFO"
 fi
 
 if [[ -n "$ECHO_NODE_ID" ]]; then
@@ -1171,8 +1298,11 @@ EOF
 info "WebUI Environment schreiben"
 cat > /etc/svxlink-webui/environment <<EOF
 SVXLINK_WEBUI_DEMO=false
-SVXLINK_NODE_NAME=$BASE_CALL
-SVXLINK_CALLSIGN=$BASE_CALL
+SVXLINK_NODE_NAME=$STATION_CALLSIGN
+SVXLINK_CALLSIGN=$STATION_CALLSIGN
+SVXLINK_BASE_CALLSIGN=$STATION_CALLSIGN
+SVXLINK_FM_CALLSIGN=$FM_CALL
+SVXLINK_ECHOLINK_CALLSIGN=$ECHO_CALL
 SVXLINK_LOCATION=${ECHO_LOCATION:-${LOCATOR:-}}
 SVXLINK_CONFIG_PATH=$SVXLINK_CONFIG
 SVXLINK_NODE_INFO_PATH=$NODE_INFO
@@ -1298,7 +1428,17 @@ $SERVER_NAME_LINE
 </VirtualHost>
 EOF
 
-a2ensite svxlink-webui >/dev/null
+if [[ -n "$WEB_HOSTNAME" ]]; then
+  rm -f /etc/apache2/sites-enabled/000-aaa-svxlink-webui.conf
+  a2ensite svxlink-webui >/dev/null
+else
+  # IP-Betrieb: Auf demselben Port muss unsere WebUI vor der Debian-
+  # Default-Site geladen werden, sonst beantwortet 000-default.conf
+  # Requests an die Server-IP.
+  a2dissite svxlink-webui >/dev/null 2>&1 || true
+  ln -sfn ../sites-available/svxlink-webui.conf     /etc/apache2/sites-enabled/000-aaa-svxlink-webui.conf
+fi
+
 apache2ctl configtest
 
 # -----------------------------------------------------------------------------
@@ -1330,10 +1470,21 @@ for _ in {1..20}; do
   sleep 0.25
 done
 
-systemctl is-active --quiet svxlink || die "SvxLink startet mit der neuen Konfiguration nicht."
+HARDWARE_READY=true
+
+if ! systemctl is-active --quiet svxlink; then
+  if aplay -l 2>/dev/null | grep -q '^card '; then
+    die "SvxLink startet trotz erkannter Audio-Hardware nicht. Konfiguration/Hardware prüfen."
+  fi
+
+  HARDWARE_READY=false
+  warn "SvxLink konnte ohne Audio-Hardware nicht gestartet werden."
+  warn "Das ist auf einem hardwarelosen Test-/Server-System zulässig."
+fi
 
 if [[ ! -e "$CONTROL_PTY" || ! -e "$RAW_STATE_PTY" ]]; then
-  warn "SvxLink läuft als Prozess, aber SimplexLogic ist nicht vollständig betriebsbereit."
+  HARDWARE_READY=false
+  warn "SvxLink läuft als Prozess, aber SimplexLogic/Funk-Hardware ist noch nicht vollständig betriebsbereit."
 
   if [[ -f /var/log/svxlink ]]; then
     echo
@@ -1344,25 +1495,44 @@ if [[ ! -e "$CONTROL_PTY" || ! -e "$RAW_STATE_PTY" ]]; then
   [[ -e "$CONTROL_PTY" ]] || warn "Control PTY fehlt: $CONTROL_PTY"
   [[ -e "$RAW_STATE_PTY" ]] || warn "State PTY fehlt: $RAW_STATE_PTY"
 
-  die "SvxLink-Hardware/Audio initialisiert nicht vollständig. Prüfe ALSA, RX/TX und PTT."
+  warn "Die WebUI wird trotzdem installiert. Funk-/State-Funktionen bleiben bis zur verfügbaren Hardware eingeschränkt."
 fi
 
-# Permission Binder direkt ausführen; Path-Units kümmern sich danach um Neustarts.
-systemctl start svxlink-webui-state-permissions.service
-systemctl start svxlink-webui-control-permissions.service
-systemctl restart svxlink-webui-state-collector.service
+# Permission-Binder und Collector nur aktiv starten, wenn SimplexLogic beide PTYs
+# tatsächlich bereitgestellt hat. Die Path-Units bleiben unabhängig davon aktiv.
+if [[ "$HARDWARE_READY" == true ]]; then
+  systemctl start svxlink-webui-state-permissions.service
+  systemctl start svxlink-webui-control-permissions.service
+  systemctl restart svxlink-webui-state-collector.service
+else
+  systemctl stop svxlink-webui-state-collector.service 2>/dev/null || true
+fi
+
 systemctl restart svxlink-webui.service
 systemctl restart svxlink-webui-updater.service
 systemctl reload apache2
 
-systemctl is-active --quiet svxlink-webui-state-collector.service || die "SvxLink State-Collector ist nicht aktiv."
+if [[ "$HARDWARE_READY" == true ]]; then
+  systemctl is-active --quiet svxlink-webui-state-collector.service || die "SvxLink State-Collector ist nicht aktiv."
+else
+  warn "State-Collector wurde nicht gestartet, da die SvxLink-PTYs noch fehlen."
+fi
+
 systemctl is-active --quiet svxlink-webui || die "svxlink-webui ist nicht aktiv."
 systemctl is-active --quiet svxlink-webui-updater || die "svxlink-webui-updater ist nicht aktiv."
 systemctl is-active --quiet apache2 || die "Apache ist nicht aktiv."
 
 # Healthcheck
-sleep 1
-curl -fsS "http://127.0.0.1:$API_PORT/health" >/dev/null || die "Backend-Healthcheck fehlgeschlagen."
+BACKEND_READY=false
+for _ in {1..40}; do
+  if curl -fsS "http://127.0.0.1:$API_PORT/health" >/dev/null 2>&1; then
+    BACKEND_READY=true
+    break
+  fi
+  sleep 0.25
+done
+
+[[ "$BACKEND_READY" == true ]] || die "Backend-Healthcheck fehlgeschlagen."
 
 runuser -u www-data -- test -r "$DOCROOT/index.html" || die "Apache/www-data kann index.html nicht lesen."
 

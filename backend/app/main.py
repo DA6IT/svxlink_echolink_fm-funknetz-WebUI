@@ -43,6 +43,10 @@ try:
 except OSError:
     VERSION = "0.7.0"
 DEMO = os.getenv("SVXLINK_WEBUI_DEMO", "false").lower() in {"1", "true", "yes"}
+BASE_CALLSIGN = os.getenv(
+    "SVXLINK_BASE_CALLSIGN",
+    os.getenv("SVXLINK_CALLSIGN", ""),
+).strip()
 CONFIG_PATH = Path(os.getenv("SVXLINK_CONFIG_PATH", "/etc/svxlink/svxlink.conf"))
 NODE_INFO_PATH = Path(os.getenv("SVXLINK_NODE_INFO_PATH", "/etc/svxlink/node_info.json"))
 LOG_PATH = Path(os.getenv("SVXLINK_LOG_PATH", "/var/log/svxlink"))
@@ -723,7 +727,22 @@ def dashboard() -> dict[str, Any]:
     node = read_node_info(NODE_INFO_PATH)
     activity = reflector_activity()
     config = parse_ini(CONFIG_PATH)
-    return {"node": node, "svxlink": service_status(), "reflector": activity,
+
+    config_callsign = (
+        config.get("SimplexLogic", {}).get("CALLSIGN")
+        or config.get("ReflectorLogic", {}).get("CALLSIGN")
+        or ""
+    )
+
+    station_callsign = (
+        BASE_CALLSIGN
+        or str(node.get("Callsign") or node.get("CALLSIGN") or "")
+        or config_callsign
+        or "N0CALL"
+    )
+
+    return {"node": node, "station": {"callsign": station_callsign},
+            "svxlink": service_status(), "reflector": activity,
             "rf": local_rf_telemetry(), "local_log": local_log_rf_activity(), "events": normalized_local_events(),
             "config": config, "demo": DEMO, "version": VERSION, "updated_at": datetime.now().astimezone().isoformat()}
 

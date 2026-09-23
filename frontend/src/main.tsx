@@ -41,6 +41,9 @@ type LocalLog = {
 
 type Status = {
   node: Record<string, string | number>;
+  station?: {
+    callsign?: string;
+  };
   svxlink: {
     status: string;
     pid: number | null;
@@ -3059,11 +3062,13 @@ function App() {
   const node = status.node;
 
   const callsign = String(
+    status.station?.callsign ||
     value(
       node,
       'Callsign',
       'CALLSIGN'
-    ) || 'DA6IT-L'
+    ) ||
+    'N0CALL'
   );
 
   const location = String(
@@ -3159,7 +3164,7 @@ function App() {
             }
           >
             <span className="brand-mark">
-              DA6IT
+              {callsign}
             </span>
 
             <span className="brand-divider" />
@@ -3401,7 +3406,7 @@ function App() {
 
                     <div>
                       <strong>
-                        {callsign}
+                        {echoLink.callsign || callsign}
                       </strong>
 
                       <span className="hero-el-live-meta">
@@ -3722,7 +3727,7 @@ function App() {
                             .toUpperCase()
                         )
                     }
-                    placeholder="z. B. DA6IT"
+                    placeholder={`z. B. ${callsign}`}
                     aria-label="Rufzeichen suchen"
                   />
 
@@ -5015,7 +5020,7 @@ function App() {
                       event.target.value
                     )
                   }
-                  placeholder="Rufzeichen oder Node-ID, z. B. DA6IT-L"
+                  placeholder={`Rufzeichen oder Node-ID, z. B. ${callsign}`}
                   autoComplete="off"
                 />
 
@@ -6101,7 +6106,7 @@ function App() {
       <footer className="footer">
         <div className="content footer-inner">
           <span>
-            DA6IT · Shari
+            {callsign} · Shari
           </span>
 
           <span>
