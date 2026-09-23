@@ -106,6 +106,16 @@ Example:
         Options -Indexes
     </Directory>
 
+    <Location "/">
+        AuthType Basic
+        AuthName "SvxLink WebUI"
+        AuthBasicProvider file
+        AuthUserFile /etc/apache2/svxlink-webui.htpasswd
+        Require valid-user
+    </Location>
+
+    ProxyPreserveHost On
+
     ProxyPass /api/ws/ ws://127.0.0.1:12346/api/ws/
     ProxyPassReverse /api/ws/ ws://127.0.0.1:12346/api/ws/
 
@@ -179,3 +189,15 @@ The installer should:
 14. roll back on failure
 
 It must not assume personal callsigns, Node IDs, hostnames, or fixed `/dev/pts/*` paths.
+
+## Browser updater
+
+The installer creates a separate `svxlink-webui-updater` account and a rootless update worker.
+
+Browser updates are enabled by default after installation. The install request is protected by Apache Basic Auth, same-origin validation and a CSRF guard.
+
+The updater may modify the application checkout, its versioned Python runtimes, the frontend deployment and the dedicated update data directories. It receives no general root or sudo privileges.
+
+Before a new revision is activated, backend/security tests, dependency checks and the frontend build are executed. A health check follows the controlled backend restart. If activation fails, the Git revision, runtime and frontend are rolled back automatically.
+
+Administrative changes to Apache, systemd, `/etc`, operating-system packages or hardware permissions are intentionally outside the browser updater.

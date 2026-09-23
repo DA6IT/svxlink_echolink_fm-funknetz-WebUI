@@ -1331,7 +1331,7 @@ SVXLINK_WEBUI_UPDATE_DATA_DIR=/var/lib/svxlink-webui-updater
 SVXLINK_WEBUI_UPDATE_IPC_DIR=/var/lib/svxlink-webui-update
 SVXLINK_WEBUI_UPDATE_REMOTE=$UPDATE_REMOTE
 SVXLINK_WEBUI_UPDATE_BRANCH=$UPDATE_BRANCH
-SVXLINK_WEBUI_UPDATE_ENABLED=false
+SVXLINK_WEBUI_UPDATE_ENABLED=true
 EOF
 chown root:"$WEBUI_GROUP" /etc/svxlink-webui/environment
 chmod 0640 /etc/svxlink-webui/environment

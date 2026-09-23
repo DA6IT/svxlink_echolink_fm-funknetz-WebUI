@@ -71,18 +71,23 @@ check test -r "$IPC_ROOT/status/worker-status.json"
 ok "worker status"
 
 UNAUTH_CODE="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$UI_PORT/")"
-[[ "$UNAUTH_CODE" == "401" || "$UNAUTH_CODE" == "200" ]] \
-  || fail "Apache returned $UNAUTH_CODE, expected 200 or 401"
-ok "Apache access ($UNAUTH_CODE)"
+[[ "$UNAUTH_CODE" == "401" ]] \
+  || fail "Apache returned $UNAUTH_CODE, expected 401"
+ok "Apache Basic Auth active (401 without credentials)"
+
+grep -Eq '^[[:space:]]*ProxyPreserveHost[[:space:]]+On([[:space:]]|$)' \
+  /etc/apache2/sites-available/svxlink-webui.conf \
+  || fail "ProxyPreserveHost On missing"
+ok "Apache preserves original Host header"
 
 INSTALL_CODE="$(curl -sS -o /dev/null -w '%{http_code}' \
   -X POST "http://127.0.0.1:$API_PORT/api/system/update/install")"
 [[ "$INSTALL_CODE" == "403" ]] \
-  || fail "browser updater returned $INSTALL_CODE, expected 403"
-ok "browser updater disabled"
+  || fail "browser updater guard returned $INSTALL_CODE, expected 403"
+ok "browser updater rejects request without CSRF/origin guard"
 
-grep -q '^SVXLINK_WEBUI_UPDATE_ENABLED=false$' /etc/svxlink-webui/environment \
-  || fail "update enable flag is not false"
-ok "update default disabled"
+grep -q '^SVXLINK_WEBUI_UPDATE_ENABLED=true$' /etc/svxlink-webui/environment \
+  || fail "update enable flag is not true"
+ok "browser updater enabled by default"
 
 printf '\nClean-install verification passed.\n'

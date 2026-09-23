@@ -45,13 +45,26 @@ Talkgroups and EchoLink Node IDs are validated before being sent.
 
 ## Authentication
 
-Built-in authentication is not yet included in the pre-release.
+The application still has no built-in user management. The public installer protects the complete WebUI with Apache Basic Auth by default.
 
-Do not expose the WebUI publicly without protection. Suitable controls include:
-- VPN
-- firewall/IP allowlist
-- reverse-proxy authentication
-- SSO
+The backend API listens on `127.0.0.1` only; external access is provided through the authenticated Apache reverse proxy.
+
+Additional controls such as VPN, firewall/IP allowlists or SSO may still be placed in front of the WebUI.
+
+## Browser updater
+
+Browser-based updates use multiple protection layers:
+
+- Apache Basic Auth in front of the WebUI and API
+- same-origin validation for write requests
+- an explicit CSRF guard header
+- `ProxyPreserveHost On` to preserve the original host at the backend
+- a separate rootless updater service without sudo or root privileges
+- security, backend and frontend tests before activation
+- a health check after activation
+- automatic rollback when an update fails
+
+The browser process does not execute privileged system commands. Administrative system migrations remain outside the web updater.
 
 ## Secrets
 

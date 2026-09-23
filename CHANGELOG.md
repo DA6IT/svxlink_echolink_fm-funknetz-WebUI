@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.0-dev.3 — Browser updater ready
+
+### Neu
+
+- Browserbasierte Updates sind nach erfolgreicher Security- und Rootless-Validierung standardmäßig freigeschaltet.
+- Clean-Install-Verifikation prüft Basic Auth, `ProxyPreserveHost On` und den CSRF-/Same-Origin-Guard.
+
+### Sicherheit
+
+- Browser-Updates bleiben durch Apache Basic Auth, Same-Origin-Prüfung und expliziten CSRF-Header geschützt.
+- Die eigentliche Installation erfolgt weiterhin ausschließlich über den separaten rootlosen Updater-Service.
+- Der vollständige Updatepfad inklusive Healthcheck und Rollback wurde live validiert.
+
+### Installation
+
+- Neue Installationen setzen `SVXLINK_WEBUI_UPDATE_ENABLED=true`.
+- Apache erhält weiterhin `ProxyPreserveHost On`, damit die Same-Origin-Prüfung den ursprünglichen Hostnamen sieht.
+
 ## 0.8.0-dev.2 — Browser updater security
 
 ### Sicherheit

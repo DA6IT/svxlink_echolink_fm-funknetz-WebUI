@@ -45,13 +45,26 @@ Talkgroups und EchoLink Node-IDs werden vor dem Senden validiert.
 
 ## Authentifizierung
 
-Eine integrierte Anmeldung ist im Pre-Release noch nicht vorhanden.
+Die Anwendung besitzt weiterhin keine eigene Benutzerverwaltung. Der öffentliche Installer schützt die komplette WebUI jedoch standardmäßig mit Apache Basic Auth.
 
-Nicht ungeschützt öffentlich exponieren. Geeignete Maßnahmen:
-- VPN
-- Firewall/IP-Allowlist
-- Reverse-Proxy-Authentifizierung
-- SSO
+Die Backend-API lauscht ausschließlich auf `127.0.0.1`; externer Zugriff erfolgt über den authentifizierten Apache-Reverse-Proxy.
+
+Zusätzliche Schutzmaßnahmen wie VPN, Firewall/IP-Allowlist oder SSO können weiterhin vorgeschaltet werden.
+
+## Browser-Updater
+
+Browserbasierte Updates verwenden mehrere Schutzebenen:
+
+- Apache Basic Auth vor WebUI und API
+- Same-Origin-Prüfung für schreibende Update-Anforderungen
+- expliziter CSRF-Guard-Header
+- `ProxyPreserveHost On`, damit der ursprüngliche Hostname am Backend erhalten bleibt
+- separater rootloser Updater-Service ohne sudo- oder Root-Rechte
+- Security-, Backend- und Frontend-Tests vor Aktivierung
+- Healthcheck nach Aktivierung
+- automatischer Rollback bei fehlgeschlagenem Update
+
+Der Browserprozess führt keine privilegierten Systemkommandos aus. Administrative Systemmigrationen bleiben außerhalb des Web-Updaters.
 
 ## Secrets
 
