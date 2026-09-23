@@ -1856,7 +1856,7 @@ button {
     var(--da6it-muted);
 
   font-size:
-    .78rem;
+    .82rem;
 }
 
 .event-list {
@@ -2657,7 +2657,7 @@ button {
 
   .tg-card {
     min-height: 101px;
-    padding: 9px 10px;
+    padding: 10px 11px;
   }
 
   .tg-number {
@@ -4117,6 +4117,246 @@ button {
   line-height: 1.4;
 }
 
+/* Buddy-Karten an "Meine Talkgroups" angleichen */
+
+.buddy-tile {
+  flex: 0 0 158px;
+  width: 158px;
+  min-width: 158px;
+  max-width: 158px;
+
+  height: 110px;
+  min-height: 110px;
+  max-height: 110px;
+
+  box-sizing: border-box;
+
+  position: relative;
+
+  display: grid;
+  grid-template-rows:
+    20px
+    28px
+    16px
+    20px;
+
+  gap: 2px;
+
+  padding: 9px 10px;
+
+  overflow: hidden;
+
+  transition:
+    border-color .12s ease,
+    background .12s ease,
+    transform .12s ease,
+    box-shadow .12s ease;
+}
+
+.buddy-tile.is-online {
+  border-color:
+    rgba(
+      98,
+      201,
+      45,
+      .30
+    );
+}
+
+.buddy-tile.is-clickable {
+  cursor: pointer;
+}
+
+.buddy-tile.is-clickable:hover {
+  transform:
+    translateY(-1px);
+
+  border-color:
+    #b7d7d0;
+}
+
+.buddy-tile.is-clickable:focus-visible {
+  outline:
+    2px solid
+    var(--da6it-teal);
+
+  outline-offset:
+    2px;
+}
+
+.buddy-tile-head {
+  min-width: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 6px;
+}
+
+.buddy-tile-head strong {
+  min-width: 0;
+
+  overflow: hidden;
+
+  color:
+    var(--da6it-ink);
+
+  font-size:
+    .78rem;
+
+  line-height:
+    1;
+
+  white-space:
+    nowrap;
+
+  text-overflow:
+    ellipsis;
+}
+
+.buddy-tile-head button {
+  flex: 0 0 auto;
+
+  width: 16px;
+  height: 16px;
+
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+
+  color:
+    #9aacab;
+
+  font-size:
+    1rem;
+
+  line-height:
+    1;
+
+  cursor: pointer;
+}
+
+.buddy-tile-head button:hover {
+  color:
+    var(--da6it-ink);
+}
+
+.buddy-tile-state {
+  min-width: 0;
+  min-height: 0;
+
+  display: flex;
+
+  align-items: end;
+
+  overflow: hidden;
+}
+
+.buddy-live,
+.buddy-online,
+.buddy-last {
+  margin: 0;
+
+  overflow: hidden;
+
+  font-size:
+    .52rem;
+
+  font-weight:
+    800;
+
+  line-height:
+    1;
+
+  white-space:
+    nowrap;
+
+  text-overflow:
+    ellipsis;
+}
+
+.buddy-online {
+  color:
+    var(--da6it-green-dark);
+}
+
+.buddy-tg {
+  min-width: 0;
+  min-height: 0;
+
+  margin: 0;
+
+  overflow: hidden;
+
+  color:
+    var(--da6it-ink);
+
+  font-size:
+    .72rem;
+
+  font-weight:
+    800;
+
+  line-height:
+    1.1;
+
+  white-space:
+    nowrap;
+
+  text-overflow:
+    ellipsis;
+}
+
+.buddy-action {
+  min-width: 0;
+  min-height: 0;
+
+  margin: 0;
+
+  align-self: end;
+
+  overflow: hidden;
+
+  color:
+    var(--da6it-muted);
+
+  font-size:
+    .54rem;
+
+  font-weight:
+    750;
+
+  line-height:
+    1;
+
+  white-space:
+    nowrap;
+
+  text-overflow:
+    ellipsis;
+}
+
+.buddy-tile.is-clickable
+.buddy-action {
+  color:
+    var(--da6it-teal);
+}
+
+.buddy-action.is-pending {
+  color:
+    var(--da6it-teal);
+}
+
+.buddy-action.is-error {
+  color:
+    #b5473c;
+}
+
 /* Search Result */
 
 .buddy-search-result {
@@ -4280,8 +4520,14 @@ button {
   }
 
   .buddy-tile {
-    flex-basis: 140px;
-    min-width: 140px;
+    flex: 0 0 145px;
+    width: 145px;
+    min-width: 145px;
+    max-width: 145px;
+
+    height: 110px;
+    min-height: 110px;
+    max-height: 110px;
   }
 }
 
