@@ -896,7 +896,7 @@ UPDATE_BRANCH="$(git -C "$SOURCE_DIR" branch --show-current 2>/dev/null || true)
 UPDATE_BRANCH="${UPDATE_BRANCH:-main}"
 
 UPDATE_REMOTE="$(git -C "$SOURCE_DIR" remote get-url origin 2>/dev/null || true)"
-UPDATE_REMOTE="${UPDATE_REMOTE:-https://git.da6it.de/hermes/svxlink-webui.git}"
+UPDATE_REMOTE="${UPDATE_REMOTE:-https://github.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI.git}"
 
 export SOURCE_DIR
 export SVXLINK_WEBUI_UPDATE_REMOTE="$UPDATE_REMOTE"

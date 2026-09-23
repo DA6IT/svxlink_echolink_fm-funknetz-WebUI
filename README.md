@@ -9,6 +9,14 @@ Die Anwendung kombiniert ein FastAPI-Backend mit einem React/Vite-Frontend und s
 
 [English version](README.en.md)
 
+## Schnellinstallation
+
+Auf einem Debian-/Ubuntu-basierten System kann die Installation direkt aus dem öffentlichen GitHub-Repository gestartet werden:
+
+    curl -fsSL https://raw.githubusercontent.com/DA6IT/svxlink_echolink_fm-funknetz-WebUI/main/bootstrap.sh | bash
+
+Der Bootstrap lädt den vollständigen aktuellen `main`-Stand von GitHub in ein temporäres Verzeichnis und startet anschließend den interaktiven Installer. Nach erfolgreicher Installation verwendet die integrierte WebUI-Updatefunktion ebenfalls das öffentliche GitHub-Repository als Updatequelle.
+
 ## Funktionen
 
 ### Übersicht
